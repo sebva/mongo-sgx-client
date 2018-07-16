@@ -1,0 +1,9 @@
+mongoclient.so
+{
+    global:
+        g_global_data_sim;
+        g_global_data;
+        mongoclient_entry;
+    local:
+        *;
+};
