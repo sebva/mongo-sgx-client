@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <stdio.h>      /* vsnprintf */
 
+#include <mongoc.h>
+
 #include "mongoclient.h"
 #include "mongoclient_t.h"  /* print_string */
 

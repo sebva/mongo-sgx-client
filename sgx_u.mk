@@ -100,30 +100,30 @@ endif
 
 run: all
 ifneq ($(Build_Mode), HW_RELEASE)
-	@$(CURDIR)/sample
+	$(CURDIR)/sample
 	@echo "RUN  =>  sample [$(SGX_MODE)|$(SGX_ARCH), OK]"
 endif
 
 ######## App Objects ########
 
 $(UNTRUSTED_DIR)/mongoclient_u.c: $(SGX_EDGER8R) trusted/mongoclient.edl
-	@cd $(UNTRUSTED_DIR) && $(SGX_EDGER8R) --untrusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
+	cd $(UNTRUSTED_DIR) && $(SGX_EDGER8R) --untrusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 
 $(UNTRUSTED_DIR)/mongoclient_u.o: $(UNTRUSTED_DIR)/mongoclient_u.c
-	@$(CC) $(App_C_Flags) -c $< -o $@
+	$(CC) $(App_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
 $(UNTRUSTED_DIR)/%.o: $(UNTRUSTED_DIR)/%.cpp
-	@$(CXX) $(App_Cpp_Flags) -c $< -o $@
+	$(CXX) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
 sample: $(UNTRUSTED_DIR)/mongoclient_u.o $(App_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(App_Link_Flags)
+	$(CXX) $^ -o $@ $(App_Link_Flags)
 	@echo "LINK =>  $@"
 
 
 .PHONY: clean
 
 clean:
-	@rm -f sample  $(App_Cpp_Objects) $(UNTRUSTED_DIR)/mongoclient_u.* 
+	rm -f sample  $(App_Cpp_Objects) $(UNTRUSTED_DIR)/mongoclient_u.* 

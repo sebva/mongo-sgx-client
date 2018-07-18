@@ -45,7 +45,7 @@ Crypto_Library_Name := sgx_tcrypto
 
 Mongoclient_Cpp_Files := trusted/mongoclient.cpp 
 Mongoclient_C_Files := 
-Mongoclient_Include_Paths := -IInclude -Itrusted -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
+Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
 
 
 Flags_Just_For_C := -Wno-implicit-function-declaration -std=c11
@@ -101,27 +101,27 @@ endif
 ######## mongoclient Objects ########
 
 trusted/mongoclient_t.c: $(SGX_EDGER8R) ./trusted/mongoclient.edl
-	@cd ./trusted && $(SGX_EDGER8R) --trusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
+	cd ./trusted && $(SGX_EDGER8R) --trusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
 
 trusted/mongoclient_t.o: ./trusted/mongoclient_t.c
-	@$(CC) $(Mongoclient_C_Flags) -c $< -o $@
+	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC   <=  $<"
 
 trusted/%.o: trusted/%.cpp
-	@$(CXX) $(Mongoclient_Cpp_Flags) -c $< -o $@
+	$(CXX) $(Mongoclient_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
 trusted/%.o: trusted/%.c
-	@$(CC) $(Mongoclient_C_Flags) -c $< -o $@
+	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
 mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects)
-	@$(CXX) $^ -o $@ $(Mongoclient_Link_Flags)
+	$(CXX) $^ -o $@ $(Mongoclient_Link_Flags)
 	@echo "LINK =>  $@"
 
 mongoclient.signed.so: mongoclient.so
-	@$(SGX_ENCLAVE_SIGNER) sign -key trusted/mongoclient_private.pem -enclave mongoclient.so -out $@ -config trusted/mongoclient.config.xml
+	$(SGX_ENCLAVE_SIGNER) sign -key trusted/mongoclient_private.pem -enclave mongoclient.so -out $@ -config trusted/mongoclient.config.xml
 	@echo "SIGN =>  $@"
 clean:
-	@rm -f mongoclient.* trusted/mongoclient_t.* $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects)
+	rm -f mongoclient.* trusted/mongoclient_t.* $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects)

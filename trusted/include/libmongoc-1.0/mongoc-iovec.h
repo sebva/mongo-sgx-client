@@ -24,7 +24,7 @@
 #ifdef _WIN32
 #include <stddef.h>
 #else
-#include <sys/uio.h>
+//#include <sys/uio.h>
 #endif
 
 BSON_BEGIN_DECLS
