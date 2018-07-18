@@ -1,3 +1,5 @@
+SGX_COMMONDIR := $(realpath ./sgx_common)
+
 ######## Intel(R) SGX SDK Settings ########
 SGX_SDK ?= /opt/intel/sgxsdk
 SGX_MODE ?= SIM
@@ -43,19 +45,20 @@ endif
 
 Crypto_Library_Name := sgx_tcrypto
 
-Mongoclient_Cpp_Files := trusted/mongoclient.cpp 
+Mongoclient_Cpp_Files := trusted/mongoclient.cpp
 Mongoclient_C_Files := 
-Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx
+Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR)
 
 
 Flags_Just_For_C := -Wno-implicit-function-declaration -std=c11
-Common_C_Cpp_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Mongoclient_Include_Paths) -fno-builtin-printf -I.
+Common_C_Cpp_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Mongoclient_Include_Paths) -pthread -fno-builtin-printf -I.
 Mongoclient_C_Flags := $(Flags_Just_For_C) $(Common_C_Cpp_Flags)
 Mongoclient_Cpp_Flags :=  $(Common_C_Cpp_Flags) -std=c++11 -nostdinc++ -fno-builtin-printf -I.
 
 Mongoclient_Cpp_Flags := $(Mongoclient_Cpp_Flags)  -fno-builtin-printf
 
 Mongoclient_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
+	-Wl,--warn-unresolved-symbols trusted/lib/libmongoc-static-1.0.a trusted/lib/libbson-static-1.0.a \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
@@ -100,6 +103,14 @@ endif
 
 ######## mongoclient Objects ########
 
+libc_mock_%.o: $(SGX_COMMONDIR)/libc_mock/%.cpp
+	$(CXX) $(Mongoclient_Cpp_Flags) -c $< -o $@
+	@echo "CXX  <=  $<"
+
+libc_mock_%.o: $(SGX_COMMONDIR)/libc_mock/%.c
+	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
+	@echo "CC  <=  $<"
+
 trusted/mongoclient_t.c: $(SGX_EDGER8R) ./trusted/mongoclient.edl
 	cd ./trusted && $(SGX_EDGER8R) --trusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
@@ -116,7 +127,7 @@ trusted/%.o: trusted/%.c
 	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
-mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects)
+mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects) libc_mock_file_mock.o libc_mock_libc_proxy.o
 	$(CXX) $^ -o $@ $(Mongoclient_Link_Flags)
 	@echo "LINK =>  $@"
 
