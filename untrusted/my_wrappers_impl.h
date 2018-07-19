@@ -29,7 +29,7 @@ extern "C" {
 	int ocall_socket(int domain, int type, int protocol);
 	ssize_t ocall_recv(int socket, void *buffer, size_t length, int flags);
 	ssize_t ocall_send(int socket, const void *buffer, size_t length, int flags);
-	ssize_t ocall_sendmsg(int socket, const struct msghdr *message, int flags);
+	ssize_t ocall_sendmsg(int socket, const struct msghdr *message, size_t message_len, int flags);
 	struct servent *ocall_getservbyname(const char *name, const char *proto);
 	struct hostent *ocall_gethostbyname(const char *name);
 	int ocall_getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags);
@@ -37,6 +37,8 @@ extern "C" {
 	int ocall_ioctl(int fildes, int request, ... /* arg */);
 	ssize_t ocall_read(int fildes, void *buf, size_t nbyte);
 	int ocall_open(const char *path, int oflag, ...);
+	int ocall_gethostname(char *name, size_t namelen);
+	pid_t ocall_getpid(void);
 
 #if defined(__cplusplus)
 }

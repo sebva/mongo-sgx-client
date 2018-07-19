@@ -8,12 +8,12 @@ void *native_malloc(size_t size) {
 
 	int sgx_retval = ocall_malloc(&buffer, size);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in malloc OCALL");
+		printf("Error in malloc OCALL\n");
 		sgx_exit();
 	}
 
 	if (!sgx_is_outside_enclave(buffer, size)) {
-		printf("Rebinding attack detected! ABORT.");
+		printf("Rebinding attack detected! ABORT.\n");
 		sgx_exit();
 	}
 
@@ -22,12 +22,12 @@ void *native_malloc(size_t size) {
 
 void native_free(void *ptr) {
 	if (!sgx_is_outside_enclave(ptr, 1)) {
-		printf("Trying to native free trusted memory.");
+		printf("Trying to native free trusted memory.\n");
 		sgx_exit();
 	}
 	int sgx_retval = ocall_free(ptr);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in free OCALL");
+		printf("Error in free OCALL\n");
 		sgx_exit();
 	}
 }
@@ -37,7 +37,7 @@ int access(const char *path, int amode) {
 
 	int sgx_retval = ocall_access(&retval, path, amode);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in access OCALL");
+		printf("Error in access OCALL\n");
 		sgx_exit();
 	}
 
@@ -50,12 +50,12 @@ int getaddrinfo(const char *node, const char *service,
 
 	int sgx_retval = ocall_getaddrinfo(&retval, node, service, hints, res);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in getaddrinfo OCALL");
+		printf("Error in getaddrinfo OCALL\n");
 		sgx_exit();
 	}
 
 	if (!sgx_is_outside_enclave(*res, sizeof(struct addrinfo))) {
-		printf("Rebinding attack detected! ABORT.");
+		printf("Rebinding attack detected! ABORT.\n");
 		sgx_exit();
 	}
 
@@ -65,7 +65,7 @@ int getaddrinfo(const char *node, const char *service,
 void freeaddrinfo(struct addrinfo *res) {
 	int sgx_retval = ocall_freeaddrinfo(res);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in access OCALL");
+		printf("Error in access OCALL\n");
 		sgx_exit();
 	}
 }
@@ -96,7 +96,7 @@ int fcntl(int fildes, int cmd, ...) {
 	int retval;
 	int sgx_retval = ocall_fcntl(&retval, fildes, cmd1, cmd2);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in fcntl OCALL");
+		printf("Error in fcntl OCALL\n");
 		sgx_exit();
 	}
 	return retval;
@@ -107,7 +107,7 @@ int poll(struct pollfd fds[], nfds_t nfds, int timeout) {
 
 	int sgx_retval = ocall_poll(&retval, fds, nfds, timeout);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in poll OCALL");
+		printf("Error in poll OCALL\n");
 		sgx_exit();
 	}
 
@@ -125,7 +125,7 @@ int getsockopt(int socket, int level, int option_name, void *restrict option_val
 
 	int sgx_retval = ocall_getsockopt(&retval, socket, level, option_name, native_option_value, native_option_len);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in getsockopt OCALL");
+		printf("Error in getsockopt OCALL\n");
 		sgx_exit();
 	}
 
@@ -144,7 +144,7 @@ int setsockopt(int socket, int level, int option_name, const void *option_value,
 
 	int sgx_retval = ocall_setsockopt(&retval, socket, level, option_name, option_value, option_len);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in setsockopt OCALL");
+		printf("Error in setsockopt OCALL\n");
 		sgx_exit();
 	}
 
@@ -156,7 +156,12 @@ int accept(int socket, struct sockaddr *restrict address, socklen_t *restrict ad
 
 	int sgx_retval = ocall_accept(&retval, socket, address, address_len);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in accept OCALL");
+		printf("Error in accept OCALL\n");
+		sgx_exit();
+	}
+
+	if (!sgx_is_outside_enclave(address, sizeof(struct addrinfo))) {
+		printf("Rebinding attack detected! ABORT.\n");
 		sgx_exit();
 	}
 
@@ -168,7 +173,7 @@ int close(int fildes) {
 
 	int sgx_retval = ocall_close(&retval, fildes);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in close OCALL");
+		printf("Error in close OCALL\n");
 		sgx_exit();
 	}
 
@@ -180,7 +185,7 @@ uint16_t ntohs(uint16_t netshort) {
 
 	int sgx_retval = ocall_ntohs(&retval, netshort);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in ntohs OCALL");
+		printf("Error in ntohs OCALL\n");
 		sgx_exit();
 	}
 
@@ -192,7 +197,7 @@ int bind(int socket, const struct sockaddr *address, socklen_t address_len) {
 
 	int sgx_retval = ocall_bind(&retval, socket, address, address_len);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in bind OCALL");
+		printf("Error in bind OCALL\n");
 		sgx_exit();
 	}
 
@@ -204,7 +209,7 @@ int shutdown(int socket, int how) {
 
 	int sgx_retval = ocall_shutdown(&retval, socket, how);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in shutdown OCALL");
+		printf("Error in shutdown OCALL\n");
 		sgx_exit();
 	}
 
@@ -216,7 +221,7 @@ int connect(int socket, const struct sockaddr *address, socklen_t address_len) {
 
 	int sgx_retval = ocall_connect(&retval, socket, address, address_len);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in connect OCALL");
+		printf("Error in connect OCALL\n");
 		sgx_exit();
 	}
 
@@ -228,7 +233,7 @@ int listen(int socket, int backlog) {
 
 	int sgx_retval = ocall_listen(&retval, socket, backlog);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in listen OCALL");
+		printf("Error in listen OCALL\n");
 		sgx_exit();
 	}
 
@@ -240,7 +245,7 @@ int socket(int domain, int type, int protocol) {
 
 	int sgx_retval = ocall_socket(&retval, domain, type, protocol);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in socket OCALL");
+		printf("Error in socket OCALL\n");
 		sgx_exit();
 	}
 
@@ -252,7 +257,7 @@ ssize_t recv(int socket, void *buffer, size_t length, int flags) {
 
 	int sgx_retval = ocall_recv(&retval, socket, buffer, length, flags);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in recv OCALL");
+		printf("Error in recv OCALL\n");
 		sgx_exit();
 	}
 
@@ -264,7 +269,7 @@ ssize_t send(int socket, const void *buffer, size_t length, int flags) {
 
 	int sgx_retval = ocall_send(&retval, socket, buffer, length, flags);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in send OCALL");
+		printf("Error in send OCALL\n");
 		sgx_exit();
 	}
 
@@ -274,9 +279,11 @@ ssize_t send(int socket, const void *buffer, size_t length, int flags) {
 ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 	ssize_t retval;
 
-	int sgx_retval = ocall_sendmsg(&retval, socket, message, flags);
+	size_t message_len = message->msg_namelen + message->msg_iovlen + message->msg_controllen + sizeof(int);
+
+	int sgx_retval = ocall_sendmsg(&retval, socket, message, message_len, flags);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in sendmsg OCALL");
+		printf("Error in sendmsg OCALL\n");
 		sgx_exit();
 	}
 
@@ -284,15 +291,15 @@ ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 }
 
 struct servent *getservbyname(const char *name, const char *proto) {
-
+	printf("TODO getservbyname\n");
 }
 
 struct hostent *gethostbyname(const char *name) {
 	struct hostent *retval;
 
-	int sgx_retval = ocall_gethostbyname(&retval, socket, name);
+	int sgx_retval = ocall_gethostbyname(&retval, name);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in gethostbyname OCALL");
+		printf("Error in gethostbyname OCALL\n");
 		sgx_exit();
 	}
 
@@ -300,15 +307,15 @@ struct hostent *gethostbyname(const char *name) {
 }
 
 int getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags) {
-
+	printf("TODO getnameinfo\n");
 }
 
 int getpeername(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
-
+	printf("TODO getpeername\n");
 }
 
 int ioctl(int fildes, int request, ... /* arg */) {
-
+	printf("TODO ioctl\n");
 }
 
 ssize_t read(int fildes, void *buf, size_t nbyte) {
@@ -316,7 +323,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 
 	int sgx_retval = ocall_read(&retval, fildes, buf, nbyte);
 	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in read OCALL");
+		printf("Error in read OCALL\n");
 		sgx_exit();
 	}
 
@@ -324,7 +331,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 }
 
 int open(const char *path, int oflag, ...) {
-
+	printf("TODO open\n");
 }
 
 int uname(struct utsname *name) {
@@ -336,157 +343,35 @@ int uname(struct utsname *name) {
 	return 0;
 }
 
+int sscanf(const char *str, const char *format, ...) {
+	return sgx_sscanf(str, format);
+}
+
 pid_t getpid(void) {
-	return 42;
+	pid_t retval;
+
+	int sgx_retval = ocall_getpid(&retval);
+	if (sgx_retval != SGX_SUCCESS) {
+		printf("Error in getpid OCALL\n");
+		sgx_exit();
+	}
+
+	return retval;
+}
+
+int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
+	printf("TODO getsockname\n");
 }
 
 int gethostname(char *name, size_t namelen) {
-	strncpy(name, "SGX", 4);
-	return 0;
+	int retval;
+
+	int sgx_retval = ocall_gethostname(&retval, name, namelen);
+	if (sgx_retval != SGX_SUCCESS) {
+		printf("Error in gethostname OCALL\n");
+		sgx_exit();
+	}
+
+	return retval;
 }
 
-/* Return the value of CH as a hexademical digit, or -1 if it is a
- different type of character.  */
-static int hex_digit_value(char ch) {
-	if ('0' <= ch && ch <= '9')
-		return ch - '0';
-	if ('a' <= ch && ch <= 'f')
-		return ch - 'a' + 10;
-	if ('A' <= ch && ch <= 'F')
-		return ch - 'A' + 10;
-	return -1;
-}
-
-static int inet_pton4(const char *src, const char *end, unsigned char *dst) {
-	int saw_digit, octets, ch;
-	unsigned char tmp[NS_INADDRSZ], *tp;
-
-	saw_digit = 0;
-	octets = 0;
-	*(tp = tmp) = 0;
-	while (src < end) {
-		ch = *src++;
-		if (ch >= '0' && ch <= '9') {
-			unsigned int new = *tp * 10 + (ch - '0');
-
-			if (saw_digit && *tp == 0)
-				return 0;
-			if (new > 255)
-				return 0;
-			*tp = new;
-			if (!saw_digit) {
-				if (++octets > 4)
-					return 0;
-				saw_digit = 1;
-			}
-		} else if (ch == '.' && saw_digit) {
-			if (octets == 4)
-				return 0;
-			*++tp = 0;
-			saw_digit = 0;
-		} else
-			return 0;
-	}
-	if (octets < 4)
-		return 0;
-	memcpy(dst, tmp, NS_INADDRSZ);
-	return 1;
-}
-
-/* Convert presentation-level IPv6 address to network order binary
- form.  Return 1 if SRC is a valid [RFC1884 2.2] address, else 0.
- This function does not touch DST unless it's returning 1.
- Author: Paul Vixie, 1996.  Inspired by Mark Andrews.  */
-static int inet_pton6(const char *src, const char *src_endp, unsigned char *dst) {
-	unsigned char tmp[NS_IN6ADDRSZ], *tp, *endp, *colonp;
-	const char *curtok;
-	int ch;
-	size_t xdigits_seen; /* Number of hex digits since colon.  */
-	unsigned int val;
-
-	tp = memset(tmp, '\0', NS_IN6ADDRSZ);
-	endp = tp + NS_IN6ADDRSZ;
-	colonp = NULL;
-
-	/* Leading :: requires some special handling.  */
-	if (src == src_endp)
-		return 0;
-	if (*src == ':') {
-		++src;
-		if (src == src_endp || *src != ':')
-			return 0;
-	}
-
-	curtok = src;
-	xdigits_seen = 0;
-	val = 0;
-	while (src < src_endp) {
-		ch = *src++;
-		int digit = hex_digit_value(ch);
-		if (digit >= 0) {
-			if (xdigits_seen == 4)
-				return 0;
-			val <<= 4;
-			val |= digit;
-			if (val > 0xffff)
-				return 0;
-			++xdigits_seen;
-			continue;
-		}
-		if (ch == ':') {
-			curtok = src;
-			if (xdigits_seen == 0) {
-				if (colonp)
-					return 0;
-				colonp = tp;
-				continue;
-			} else if (src == src_endp)
-				return 0;
-			if (tp + NS_INT16SZ > endp)
-				return 0;
-			*tp++ = (unsigned char) (val >> 8) & 0xff;
-			*tp++ = (unsigned char) val & 0xff;
-			xdigits_seen = 0;
-			val = 0;
-			continue;
-		}
-		if (ch == '.' && ((tp + NS_INADDRSZ) <= endp)
-				&& inet_pton4(curtok, src_endp, tp) > 0) {
-			tp += NS_INADDRSZ;
-			xdigits_seen = 0;
-			break; /* '\0' was seen by inet_pton4.  */
-		}
-		return 0;
-	}
-	if (xdigits_seen > 0) {
-		if (tp + NS_INT16SZ > endp)
-			return 0;
-		*tp++ = (unsigned char) (val >> 8) & 0xff;
-		*tp++ = (unsigned char) val & 0xff;
-	}
-	if (colonp != NULL) {
-		/* Replace :: with zeros.  */
-		if (tp == endp)
-			/* :: would expand to a zero-width field.  */
-			return 0;
-		size_t n = tp - colonp;
-		memmove(endp - n, colonp, n);
-		memset(colonp, 0, endp - n - colonp);
-		tp = endp;
-	}
-	if (tp != endp)
-		return 0;
-	memcpy(dst, tmp, NS_IN6ADDRSZ);
-	return 1;
-}
-
-int inet_pton(int af, const char *src, void *dst) {
-	switch (af) {
-	case AF_INET:
-		return inet_pton4(src, src + strlen(src), dst);
-	case AF_INET6:
-		return inet_pton6(src, src + strlen(src), dst);
-	default:
-		return -1;
-	}
-}

@@ -83,7 +83,7 @@ ssize_t ocall_send(int socket, const void *buffer, size_t length, int flags) {
 	return send(socket, buffer, length, flags);
 }
 
-ssize_t ocall_sendmsg(int socket, const struct msghdr *message, int flags) {
+ssize_t ocall_sendmsg(int socket, const struct msghdr *message, size_t message_len, int flags) {
 	return sendmsg(socket, message, flags);
 }
 
@@ -113,4 +113,12 @@ ssize_t ocall_read(int fildes, void *buf, size_t nbyte) {
 
 int ocall_open(const char *path, int oflag, ...) {
 	return open(path, oflag);
+}
+
+int ocall_gethostname(char *name, size_t namelen) {
+	return gethostname(name, namelen);
+}
+
+pid_t ocall_getpid(void) {
+	return getpid();
 }

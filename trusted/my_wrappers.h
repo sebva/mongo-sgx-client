@@ -40,14 +40,14 @@ int ioctl(int fildes, int request, ... /* arg */);
 const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 ssize_t read(int fildes, void *buf, size_t nbyte);
 int open(const char *path, int oflag, ...);
-
+int gethostname(char *name, size_t namelen);
+pid_t getpid(void);
 int putchar(int c);
+int sscanf(const char *str, const char *format, ...);
+int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
 
 
 // Served locally
 int uname(struct utsname *name);
-pid_t getpid(void);
-int gethostname(char *name, size_t namelen);
-int inet_pton(int af, const char *src, void *dst);
 
 #endif /* TRUSTED_MY_WRAPPERS_H_ */
