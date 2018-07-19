@@ -195,15 +195,6 @@ int initialize_enclave(void)
     return 0;
 }
 
-/* OCall functions */
-void ocall_mongoclient_sample(const char *str)
-{
-    /* Proxy/Bridge will check the length and null-terminate 
-     * the input string to prevent buffer overflow. 
-     */
-    printf("%s", str);
-}
-
 
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])

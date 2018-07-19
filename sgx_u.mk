@@ -42,8 +42,7 @@ else
 	Urts_Library_Name := sgx_urts
 endif
 
-# App_Cpp_Files := App/App.cpp $(wildcard App/Edger8rSyntax/*.cpp) $(wildcard App/TrustedLibrary/*.cpp)
-App_Cpp_Files := $(UNTRUSTED_DIR)/sample.cpp # $(wildcard App/TrustedLibrary/*.cpp)
+App_Cpp_Files := $(wildcard $(UNTRUSTED_DIR)/*.cpp)
 App_Include_Paths := -IInclude -I$(UNTRUSTED_DIR) -I$(SGX_SDK)/include
 
 App_C_Flags := $(SGX_COMMON_CFLAGS) -fPIC -Wno-attributes $(App_Include_Paths)

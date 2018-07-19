@@ -45,8 +45,8 @@ endif
 
 Crypto_Library_Name := sgx_tcrypto
 
-Mongoclient_Cpp_Files := trusted/mongoclient.cpp
-Mongoclient_C_Files := 
+Mongoclient_Cpp_Files := trusted/ssl_wrappers.cpp
+Mongoclient_C_Files := trusted/mongoclient.c trusted/pthread.c trusted/my_wrappers.c
 Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR)
 
 
@@ -58,7 +58,7 @@ Mongoclient_Cpp_Flags :=  $(Common_C_Cpp_Flags) -std=c++11 -nostdinc++ -fno-buil
 Mongoclient_Cpp_Flags := $(Mongoclient_Cpp_Flags)  -fno-builtin-printf
 
 Mongoclient_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
-	-Wl,--warn-unresolved-symbols trusted/lib/libmongoc-static-1.0.a trusted/lib/libbson-static-1.0.a \
+	-Wl,--warn-unresolved-symbols trusted/lib/libmongoc-static-1.0.a trusted/lib/libbson-static-1.0.a trusted/lib/libssl.a trusted/lib/libcrypto.a \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \
@@ -132,7 +132,7 @@ mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient
 	@echo "LINK =>  $@"
 
 mongoclient.signed.so: mongoclient.so
-	$(SGX_ENCLAVE_SIGNER) sign -key trusted/mongoclient_private.pem -enclave mongoclient.so -out $@ -config trusted/mongoclient.config.xml
+	$(SGX_ENCLAVE_SIGNER) sign -ignore-init-sec-error -key trusted/mongoclient_private.pem -enclave mongoclient.so -out $@ -config trusted/mongoclient.config.xml
 	@echo "SIGN =>  $@"
 clean:
 	rm -f mongoclient.* trusted/mongoclient_t.* $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects)

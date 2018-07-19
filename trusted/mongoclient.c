@@ -2,28 +2,42 @@
 #include <stdio.h>      /* vsnprintf */
 
 #include <mongoc.h>
+#include "ssl_wrappers.h"
 
 #include "mongoclient.h"
 #include "mongoclient_t.h"  /* print_string */
 
+struct tm * localtime_r(const time_t *t, struct tm *tp) {
+	struct tm *l = sgx_localtime(t);
+	if (!l)
+		return 0;
+	*tp = *l;
+	return tp;
+}
 
-/* 
- * printf: 
- *   Invokes OCALL to display the enclave buffer to the terminal.
- */
-void printf(const char *fmt, ...) {
-	char buf[BUFSIZ] = { '\0' };
+long syscall(long number, ...) {
 	va_list ap;
-	va_start(ap, fmt);
-	vsnprintf(buf, BUFSIZ, fmt, ap);
+	va_start(ap, number);
+
+	int actual_number = va_arg(ap, int);
 	va_end(ap);
-	ocall_mongoclient_sample(buf);
+
+	if (actual_number == 186l) { // gettid
+		return 1l;
+	}
+
+	return -1l;
+}
+
+int gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
+	return sgx_gettimeofday(tp);
 }
 
 int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");
 
-	const char *uri_string = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+	const char *uri_string =
+			"mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
 	mongoc_uri_t *uri;
 	mongoc_client_t *client;
 	mongoc_database_t *database;
@@ -37,6 +51,7 @@ int ecall_mongoclient_sample() {
 	 * Required to initialize libmongoc's internals
 	 */
 	mongoc_init();
+	printf("INIT OK");
 
 	/*
 	 * Safely create a MongoDB URI object from the given string
