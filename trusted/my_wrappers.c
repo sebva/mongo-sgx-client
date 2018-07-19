@@ -78,39 +78,13 @@ int putchar(int c) {
 }
 
 int fcntl(int fildes, int cmd, ...) {
-	va_list cmd_va;
-	va_start(cmd_va, cmd);
+	va_list ap;
+	va_start(ap, cmd);
+	int arg = va_arg(ap, int);
+	va_end(ap);
 
-	int cmd_array[cmd];
-
-	for (int i = 0; i < cmd; i++) {
-		int val = va_arg(cmd_va, int);
-		cmd_array[i] = val;
-	}
-	va_end(cmd_va);
-
-	int retval, sgx_retval;
-	switch (cmd) {
-	case 1:
-		sgx_retval = ocall_fcntl1(&retval, fildes, cmd_array[0]);
-		break;
-	case 2:
-		sgx_retval = ocall_fcntl2(&retval, fildes, cmd_array[0], cmd_array[1]);
-		break;
-	case 3:
-		sgx_retval = ocall_fcntl3(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2]);
-		break;
-	case 4:
-		sgx_retval = ocall_fcntl4(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2], cmd_array[3]);
-		break;
-	case 5:
-		sgx_retval = ocall_fcntl5(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2], cmd_array[3], cmd_array[4]);
-		break;
-	default:
-		printf("Impossible fnctl call\n");
-		sgx_exit();
-		break;
-	}
+	int retval;
+	int sgx_retval = ocall_fcntl(&retval, fildes, cmd, arg);
 
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in fcntl OCALL\n");
@@ -240,11 +214,11 @@ int shutdown(int socket, int how) {
 
 int connect(int socket, const struct sockaddr *address, socklen_t address_len) {
 	int retval;
-
+	printf("connect %d\n", address_len);
 	int sgx_retval = ocall_connect(&retval, socket, address, address_len);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in connect OCALL\n");
-		sgx_exit();
+		sgx_exit(sgx_retval);
 	}
 
 	return retval;

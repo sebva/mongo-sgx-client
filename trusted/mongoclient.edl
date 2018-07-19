@@ -10,11 +10,7 @@ enclave {
     	int ocall_access([in, string] const char *path, int amode);
     	int ocall_getaddrinfo([in, string] const char *node, [in, string] const char *service, [in] const struct addrinfo *hints, [user_check] struct addrinfo **res);
 		void ocall_freeaddrinfo([user_check] struct addrinfo *res);
-		int ocall_fcntl1(int fildes, int cmd1);
-		int ocall_fcntl2(int fildes, int cmd1, int cmd2);
-		int ocall_fcntl3(int fildes, int cmd1, int cmd2, int cmd3);
-		int ocall_fcntl4(int fildes, int cmd1, int cmd2, int cmd3, int cmd4);
-		int ocall_fcntl5(int fildes, int cmd1, int cmd2, int cmd3, int cmd4, int cmd5);
+		int ocall_fcntl(int fildes, int cmd, int arg);
 		int ocall_poll([in, out, count=nfds] struct pollfd *fds, nfds_t nfds, int timeout);
 		int ocall_getsockopt(int socket, int level, int option_name, [user_check] void *option_value, [user_check] socklen_t *option_len);
 		int ocall_setsockopt(int socket, int level, int option_name, [in, size=option_len] const void *option_value, socklen_t option_len);
