@@ -15,20 +15,6 @@ struct tm * localtime_r(const time_t *t, struct tm *tp) {
 	return tp;
 }
 
-long syscall(long number, ...) {
-	va_list ap;
-	va_start(ap, number);
-
-	int actual_number = va_arg(ap, int);
-	va_end(ap);
-
-	if (actual_number == 186l) { // gettid
-		return 1l;
-	}
-
-	return -1l;
-}
-
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
 	return sgx_gettimeofday(tp);
 }
@@ -37,7 +23,8 @@ int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");
 
 	const char *uri_string =
-			"mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+			"mongodb://172.28.1.102:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+			//"mongodb://172.28.1.102:27017/";
 	mongoc_uri_t *uri;
 	mongoc_client_t *client;
 	mongoc_database_t *database;
@@ -68,8 +55,10 @@ int ecall_mongoclient_sample() {
 	 */
 	client = mongoc_client_new_from_uri(uri);
 	if (!client) {
+		printf("Client failure\n");
 		return EXIT_FAILURE;
 	}
+	printf("Client OK\n");
 
 	/*
 	 * Register the application name so we can track it in the profile logs
@@ -88,14 +77,15 @@ int ecall_mongoclient_sample() {
 	 * performs an insert
 	 */
 	command = BCON_NEW("ping", BCON_INT32 (1));
+	printf("command=\n");
 
 	retval = mongoc_client_command_simple(client, "admin", command, NULL,
 			&reply, &error);
 
-	if (!retval) {
+	/*if (!retval) {
 		printf("%s\n", error.message);
 		return EXIT_FAILURE;
-	}
+	}*/
 
 	str = bson_as_json(&reply, NULL);
 	printf("%s\n", str);

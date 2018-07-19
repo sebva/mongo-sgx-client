@@ -1,7 +1,7 @@
 #include "pthread.h"
 
 static void pthread_print(const char* func_name) {
-	// printf("pthread_%s\n", func_name);
+	printf("pthread_%s\n", func_name);
 }
 
 pthread_t pthread_self(void) {
@@ -43,11 +43,11 @@ int pthread_join(pthread_t thread, void **retval) {
 }
 
 int pthread_mutex_lock(pthread_mutex_t *mutex) {
-	pthread_print("mutex_lock");
+	//pthread_print("mutex_lock");
 }
 int pthread_mutex_trylock(pthread_mutex_t *mutex) {
 	pthread_print("mutex_trylock");
 }
 int pthread_mutex_unlock(pthread_mutex_t *mutex) {
-	pthread_print("mutex_unlock");
+	//pthread_print("mutex_unlock");
 }

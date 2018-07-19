@@ -1,6 +1,5 @@
 #include "my_wrappers_impl.h"
 
-#include <unistd.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -27,8 +26,24 @@ void ocall_freeaddrinfo(struct addrinfo *res) {
 	return freeaddrinfo(res);
 }
 
-int ocall_fcntl(int fildes, int cmd1, int cmd2) {
+int ocall_fcntl1(int fildes, int cmd1) {
+	return fcntl(fildes, cmd1);
+}
+
+int ocall_fcntl2(int fildes, int cmd1, int cmd2) {
 	return fcntl(fildes, cmd1, cmd2);
+}
+
+int ocall_fcntl3(int fildes, int cmd1, int cmd2, int cmd3) {
+	return fcntl(fildes, cmd1, cmd2, cmd3);
+}
+
+int ocall_fcntl4(int fildes, int cmd1, int cmd2, int cmd3, int cmd4) {
+	return fcntl(fildes, cmd1, cmd2, cmd3, cmd4);
+}
+
+int ocall_fcntl5(int fildes, int cmd1, int cmd2, int cmd3, int cmd4, int cmd5) {
+	return fcntl(fildes, cmd1, cmd2, cmd3, cmd4, cmd5);
 }
 
 int ocall_poll(struct pollfd fds[], nfds_t nfds, int timeout) {
@@ -40,6 +55,7 @@ int ocall_getsockopt(int socket, int level, int option_name, void *option_value,
 }
 
 int ocall_setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len) {
+	printf("Hello setsockopt!");
 	return setsockopt(socket, level, option_name, option_value, option_len);
 }
 
@@ -121,4 +137,8 @@ int ocall_gethostname(char *name, size_t namelen) {
 
 pid_t ocall_getpid(void) {
 	return getpid();
+}
+
+int ocall_usleep(useconds_t usec) {
+	return usleep(usec);
 }

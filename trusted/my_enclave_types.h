@@ -13,6 +13,7 @@
 #include <sys/poll.h>
 #include <stdarg.h>
 #include <netdb.h>
+#include <unistd.h>
 
 
 #ifndef MONGOCLIENT_U_H__

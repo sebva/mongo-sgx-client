@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <sys/poll.h>
 #include <cstdint>
+#include <cstdarg>
+#include <unistd.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -15,7 +17,11 @@ extern "C" {
 	int ocall_access(const char *path, int amode);
 	int ocall_getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res);
 	void ocall_freeaddrinfo(struct addrinfo *res);
-	int ocall_fcntl(int fildes, int cmd1, int cmd2);
+	int ocall_fcntl1(int fildes, int cmd1);
+	int ocall_fcntl2(int fildes, int cmd1, int cmd2);
+	int ocall_fcntl3(int fildes, int cmd1, int cmd2, int cmd3);
+	int ocall_fcntl4(int fildes, int cmd1, int cmd2, int cmd3, int cmd4);
+	int ocall_fcntl5(int fildes, int cmd1, int cmd2, int cmd3, int cmd4, int cmd5);
 	int ocall_poll(struct pollfd fds[], nfds_t nfds, int timeout);
 	int ocall_getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
 	int ocall_setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
@@ -39,6 +45,7 @@ extern "C" {
 	int ocall_open(const char *path, int oflag, ...);
 	int ocall_gethostname(char *name, size_t namelen);
 	pid_t ocall_getpid(void);
+	int ocall_usleep(useconds_t usec);
 
 #if defined(__cplusplus)
 }

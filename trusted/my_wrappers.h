@@ -45,7 +45,9 @@ pid_t getpid(void);
 int putchar(int c);
 int sscanf(const char *str, const char *format, ...);
 int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
-
+long syscall(long number, ...);
+int vsscanf(const char *str, const char *format, va_list ap);
+int usleep(useconds_t usec);
 
 // Served locally
 int uname(struct utsname *name);

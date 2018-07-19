@@ -236,56 +236,12 @@ void sgx_exit(int exit_status)
 
 int sgx_sscanf(const char *str, const char *format, ...)
 {
-	int val_cnt = 0;
-	va_list args;
-	va_start(args, format);
-	for ( ; *format != '\0'; format++) {
-		if (*format == '%' && format[1] == 'd') {
-			int positive;
-			int value;
-			int *valp;
+	va_list format_va;
+	va_start(format_va, format);
 
-			if (*str == '-') {
-				positive = 0;
-				str++;
-			} else
-				positive = 1;
-			if (!isdigit(*str))
-				break;
-			value = 0;
-			do {
-				value = (value * 10) - (*str - '0');
-				str++;
-			} while (isdigit(*str));
-			if (positive)
-				value = -value;
-			valp = va_arg(args, int *);
-			val_cnt++;
-			*valp = value;
-			format++;
-		}
-		else if (*format == '%' && format[1] == 'c') {
-			char value;
-			char *valp;
-
-			if (!isalpha(*str))
-				break;
-			value = *str;
-			str++;
-			valp = va_arg(args, char *);
-			val_cnt++;
-			*valp = value;
-			format++;
-		}
-		else if (*format == *str) {
-			str++;
-		}
-		else {
-			break;
-		}
-	}
-	va_end(args);
-	return val_cnt;
+	int retval = vsscanf(str, format, format_va);
+	va_end(format_va);
+	return retval;
 }
 
 int sgxssl_read_rand(unsigned char *rand_buf, int length_in_bytes)

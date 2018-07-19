@@ -81,20 +81,37 @@ int fcntl(int fildes, int cmd, ...) {
 	va_list cmd_va;
 	va_start(cmd_va, cmd);
 
-	int cmd1, cmd2;
+	int cmd_array[cmd];
 
 	for (int i = 0; i < cmd; i++) {
 		int val = va_arg(cmd_va, int);
-		if (i == 0) {
-			cmd1 = val;
-		} else if (i == 1) {
-			cmd2 = val;
-		}
+		cmd_array[i] = val;
 	}
 	va_end(cmd_va);
 
-	int retval;
-	int sgx_retval = ocall_fcntl(&retval, fildes, cmd1, cmd2);
+	int retval, sgx_retval;
+	switch (cmd) {
+	case 1:
+		sgx_retval = ocall_fcntl1(&retval, fildes, cmd_array[0]);
+		break;
+	case 2:
+		sgx_retval = ocall_fcntl2(&retval, fildes, cmd_array[0], cmd_array[1]);
+		break;
+	case 3:
+		sgx_retval = ocall_fcntl3(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2]);
+		break;
+	case 4:
+		sgx_retval = ocall_fcntl4(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2], cmd_array[3]);
+		break;
+	case 5:
+		sgx_retval = ocall_fcntl5(&retval, fildes, cmd_array[0], cmd_array[1], cmd_array[2], cmd_array[3], cmd_array[4]);
+		break;
+	default:
+		printf("Impossible fnctl call\n");
+		sgx_exit();
+		break;
+	}
+
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in fcntl OCALL\n");
 		sgx_exit();
@@ -114,7 +131,8 @@ int poll(struct pollfd fds[], nfds_t nfds, int timeout) {
 	return retval;
 }
 
-int getsockopt(int socket, int level, int option_name, void *restrict option_value, socklen_t *restrict option_len) {
+int getsockopt(int socket, int level, int option_name,
+		void *restrict option_value, socklen_t *restrict option_len) {
 	int retval;
 
 	void* native_option_value = native_malloc(*option_len);
@@ -123,7 +141,8 @@ int getsockopt(int socket, int level, int option_name, void *restrict option_val
 	memcpy(native_option_value, option_value, *option_len);
 	*native_option_len = *option_len;
 
-	int sgx_retval = ocall_getsockopt(&retval, socket, level, option_name, native_option_value, native_option_len);
+	int sgx_retval = ocall_getsockopt(&retval, socket, level, option_name,
+			native_option_value, native_option_len);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in getsockopt OCALL\n");
 		sgx_exit();
@@ -139,10 +158,12 @@ int getsockopt(int socket, int level, int option_name, void *restrict option_val
 	return retval;
 }
 
-int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len) {
+int setsockopt(int socket, int level, int option_name, const void *option_value,
+		socklen_t option_len) {
 	int retval;
 
-	int sgx_retval = ocall_setsockopt(&retval, socket, level, option_name, option_value, option_len);
+	int sgx_retval = ocall_setsockopt(&retval, socket, level, option_name,
+			option_value, option_len);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in setsockopt OCALL\n");
 		sgx_exit();
@@ -151,7 +172,8 @@ int setsockopt(int socket, int level, int option_name, const void *option_value,
 	return retval;
 }
 
-int accept(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
+int accept(int socket, struct sockaddr *restrict address,
+		socklen_t *restrict address_len) {
 	int retval;
 
 	int sgx_retval = ocall_accept(&retval, socket, address, address_len);
@@ -279,9 +301,11 @@ ssize_t send(int socket, const void *buffer, size_t length, int flags) {
 ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 	ssize_t retval;
 
-	size_t message_len = message->msg_namelen + message->msg_iovlen + message->msg_controllen + sizeof(int);
+	size_t message_len = message->msg_namelen + message->msg_iovlen
+			+ message->msg_controllen + sizeof(int);
 
-	int sgx_retval = ocall_sendmsg(&retval, socket, message, message_len, flags);
+	int sgx_retval = ocall_sendmsg(&retval, socket, message, message_len,
+			flags);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in sendmsg OCALL\n");
 		sgx_exit();
@@ -306,11 +330,13 @@ struct hostent *gethostbyname(const char *name) {
 	return retval;
 }
 
-int getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags) {
+int getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host,
+		socklen_t hostlen, char *serv, socklen_t servlen, int flags) {
 	printf("TODO getnameinfo\n");
 }
 
-int getpeername(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
+int getpeername(int socket, struct sockaddr *restrict address,
+		socklen_t *restrict address_len) {
 	printf("TODO getpeername\n");
 }
 
@@ -324,6 +350,18 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
 	int sgx_retval = ocall_read(&retval, fildes, buf, nbyte);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in read OCALL\n");
+		sgx_exit();
+	}
+
+	return retval;
+}
+
+int usleep(useconds_t usec) {
+	int retval;
+
+	int sgx_retval = ocall_usleep(&retval, usec);
+	if (sgx_retval != SGX_SUCCESS) {
+		printf("Error in usleep OCALL\n");
 		sgx_exit();
 	}
 
@@ -344,7 +382,11 @@ int uname(struct utsname *name) {
 }
 
 int sscanf(const char *str, const char *format, ...) {
-	return sgx_sscanf(str, format);
+	va_list format_va;
+	va_start(format_va, format);
+
+	int retval = vsscanf(str, format, format_va);
+	va_end(format_va);
 }
 
 pid_t getpid(void) {
@@ -359,7 +401,8 @@ pid_t getpid(void) {
 	return retval;
 }
 
-int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
+int getsockname(int socket, struct sockaddr *restrict address,
+		socklen_t *restrict address_len) {
 	printf("TODO getsockname\n");
 }
 
@@ -375,3 +418,53 @@ int gethostname(char *name, size_t namelen) {
 	return retval;
 }
 
+long syscall(long number, ...) {
+	return 42L;
+}
+
+int vsscanf(const char *str, const char *format, va_list args) {
+	int val_cnt = 0;
+	for (; *format != '\0'; format++) {
+		if (*format == '%' && format[1] == 'd') {
+			int positive;
+			int value;
+			int *valp;
+
+			if (*str == '-') {
+				positive = 0;
+				str++;
+			} else
+				positive = 1;
+			if (!isdigit(*str))
+				break;
+			value = 0;
+			do {
+				value = (value * 10) - (*str - '0');
+				str++;
+			} while (isdigit(*str));
+			if (positive)
+				value = -value;
+			valp = va_arg(args, int *);
+			val_cnt++;
+			*valp = value;
+			format++;
+		} else if (*format == '%' && format[1] == 'c') {
+			char value;
+			char *valp;
+
+			if (!isalpha(*str))
+				break;
+			value = *str;
+			str++;
+			valp = va_arg(args, char *);
+			val_cnt++;
+			*valp = value;
+			format++;
+		} else if (*format == *str) {
+			str++;
+		} else {
+			break;
+		}
+	}
+	return val_cnt;
+}

@@ -43,6 +43,7 @@ int sgx_sscanf(const char *str, const char *format, ...);
 int sgxssl_read_rand(unsigned char *rand_buf, int length_in_bytes);
 const unsigned short **__ctype_b_loc(void);
 const int32_t **__ctype_tolower_loc(void);
+int vsscanf(const char *str, const char *format, va_list args);
 
 #define printe(fmt, ...) sgx_printe(__FUNCTION__, fmt, ##__VA_ARGS__)
 #define printl(fmt, ...) sgx_printl(__FUNCTION__, fmt, ##__VA_ARGS__)
