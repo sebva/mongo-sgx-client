@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <stropts.h>
+#include <cstdio>
 
 void* ocall_malloc(size_t size) {
 	return malloc(size);
