@@ -105,6 +105,7 @@ int ecall_mongoclient_sample() {
 	mongoc_collection_destroy(collection);
 	mongoc_database_destroy(database);
 	mongoc_uri_destroy(uri);
+	// Freeing the memory segfaults for some reason
 	//mongoc_client_destroy(client);
 	mongoc_cleanup();
 

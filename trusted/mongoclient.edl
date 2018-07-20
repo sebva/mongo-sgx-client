@@ -8,7 +8,7 @@ enclave {
     	void* ocall_malloc(size_t size);
 		void ocall_free([user_check] void *ptr);
     	int ocall_access([in, string] const char *path, int amode) propagate_errno;
-    	int ocall_getaddrinfo([in, string] const char *node, [in, string] const char *service, [in] const struct addrinfo *hints, [user_check] struct addrinfo **res);
+    	int ocall_getaddrinfo([in, string] const char *node, [in, string] const char *service, [in] const struct addrinfo *hints, [out] struct addrinfo **res);
 		void ocall_freeaddrinfo([user_check] struct addrinfo *res);
 		int ocall_fcntl(int fildes, int cmd, int arg) propagate_errno;
 		int ocall_poll([in, out, count=nfds] struct pollfd *fds, nfds_t nfds, int timeout) propagate_errno;

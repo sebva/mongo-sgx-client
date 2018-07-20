@@ -47,12 +47,15 @@ int access(const char *path, int amode) {
 int getaddrinfo(const char *node, const char *service,
 		const struct addrinfo *hints, struct addrinfo **res) {
 	int retval;
+	struct addrinfo *res_tmp = 0;
 
-	int sgx_retval = ocall_getaddrinfo(&retval, node, service, hints, res);
+	int sgx_retval = ocall_getaddrinfo(&retval, node, service, hints, &res_tmp);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in getaddrinfo OCALL\n");
 		sgx_exit();
 	}
+
+	*res = res_tmp;
 
 	if (!sgx_is_outside_enclave(*res, sizeof(struct addrinfo))) {
 		printf("Rebinding attack detected! ABORT.\n");
