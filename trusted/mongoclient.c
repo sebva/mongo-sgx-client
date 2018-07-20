@@ -22,9 +22,7 @@ int gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
 int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");
 
-	const char *uri_string =
-			"mongodb://172.28.1.102:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
-			//"mongodb://172.28.1.102:27017/";
+	const char *uri_string = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
 	mongoc_uri_t *uri;
 	mongoc_client_t *client;
 	mongoc_database_t *database;
@@ -107,7 +105,7 @@ int ecall_mongoclient_sample() {
 	mongoc_collection_destroy(collection);
 	mongoc_database_destroy(database);
 	mongoc_uri_destroy(uri);
-	mongoc_client_destroy(client);
+	//mongoc_client_destroy(client);
 	mongoc_cleanup();
 
 	return 0;
