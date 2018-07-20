@@ -214,7 +214,7 @@ int shutdown(int socket, int how) {
 
 int connect(int socket, const struct sockaddr *address, socklen_t address_len) {
 	int retval;
-	printf("connect %d\n", address_len);
+
 	int sgx_retval = ocall_connect(&retval, socket, address, address_len);
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in connect OCALL\n");
@@ -275,11 +275,65 @@ ssize_t send(int socket, const void *buffer, size_t length, int flags) {
 ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 	ssize_t retval;
 
-	size_t message_len = message->msg_namelen + message->msg_iovlen
-			+ message->msg_controllen + sizeof(int);
+	// Array where we keep all pointer we allocated for easy freeing at the end
+	size_t nb_mallocs = 4 + (message->msg_iovlen * 2);
+	void **native_pointers_to_free = malloc(nb_mallocs);
+	int index = 0;
 
-	int sgx_retval = ocall_sendmsg(&retval, socket, message, message_len,
-			flags);
+	struct msghdr *message_native = native_malloc(sizeof(struct msghdr));
+	native_pointers_to_free[index++] = message_native;
+
+	// Copy trivial values
+	message_native->msg_controllen = message->msg_controllen;
+	message_native->msg_flags = message->msg_flags;
+	message_native->msg_iovlen = message->msg_iovlen;
+	message_native->msg_namelen = message->msg_namelen;
+
+	// Now onto slightly more difficult values
+	void* msg_control_native = native_malloc(message->msg_controllen);
+	native_pointers_to_free[index++] = msg_control_native;
+	memcpy(msg_control_native, message->msg_control, message->msg_controllen);
+	message_native->msg_control = msg_control_native;
+
+	void* msg_name_native = native_malloc(message->msg_namelen);
+	native_pointers_to_free[index++] =
+	memcpy(msg_name_native, message->msg_name, message->msg_namelen);
+	message_native->msg_name = msg_name_native;
+
+	// And finally, the complex value
+	struct iovec *iov_array_native = native_malloc(message->msg_iovlen * sizeof(struct iovec));
+	native_pointers_to_free[index++] = iov_array_native;
+	message_native->msg_iov = iov_array_native;
+
+	for (int i = 0; i < message->msg_iovlen; i++) {
+		struct iovec *iov_native = native_malloc(sizeof(struct iovec));
+		native_pointers_to_free[index++] = iov_native;
+
+		size_t len = (message->msg_iov[i]).iov_len;
+		iov_native->iov_len = len;
+		void *iov_base_native = native_malloc(len);
+		native_pointers_to_free[index++] = iov_base_native;
+		memcpy(iov_base_native, (message->msg_iov[i]).iov_base, len);
+		iov_native->iov_base = iov_base_native;
+
+		iov_array_native[i] = *iov_native;
+	}
+
+	// Be sure that nb_mallocs is correct
+	if (index != nb_mallocs) {
+		printf("ERROR in computation of nb_mallocs in sendmsg\n");
+		sgx_exit(1);
+		return 0;
+	}
+
+	int sgx_retval = ocall_sendmsg(&retval, socket, message_native, flags);
+
+	// Free all that memory we allocated earlier
+	for (int i = 0; i < nb_mallocs; i++) {
+		native_free(native_pointers_to_free[i]);
+	}
+
+
 	if (sgx_retval != SGX_SUCCESS) {
 		printf("Error in sendmsg OCALL\n");
 		sgx_exit();
@@ -441,4 +495,8 @@ int vsscanf(const char *str, const char *format, va_list args) {
 		}
 	}
 	return val_cnt;
+}
+
+int SSL_CTX_set_default_verify_paths(void *ctx) {
+	return 1;
 }

@@ -84,7 +84,7 @@ ssize_t ocall_send(int socket, const void *buffer, size_t length, int flags) {
 	return send(socket, buffer, length, flags);
 }
 
-ssize_t ocall_sendmsg(int socket, const struct msghdr *message, size_t message_len, int flags) {
+ssize_t ocall_sendmsg(int socket, const struct msghdr *message, int flags) {
 	return sendmsg(socket, message, flags);
 }
 
