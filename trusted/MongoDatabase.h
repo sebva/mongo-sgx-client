@@ -8,7 +8,7 @@
 #ifndef TRUSTED_MONGODATABASE_H_
 #define TRUSTED_MONGODATABASE_H_
 
-#include <string>
+#include <set>
 #include <mongoc.h>
 
 class MongoDatabase {
@@ -17,6 +17,10 @@ public:
 	virtual ~MongoDatabase();
 
 	bool ping();
+	bool create_user(const char* user_name);
+	bool add_user_to_group(const char* user_name, const char* group_name);
+	bool is_user_part_of_group(const char* user_name, const char* group_name);
+	std::set<const char*> get_keys_of_group(const char* group_name);
 
 private:
 	mongoc_client_t *client;

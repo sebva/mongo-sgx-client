@@ -61,11 +61,44 @@ bool MongoDatabase::ping() {
 	bson_error_t error;
 	bson_t *command = BCON_NEW("ping", BCON_INT32 (1));
 
-	bool retval = mongoc_client_command_simple(client, "admin", command, NULL,
-			&reply, &error);
+	bool retval = mongoc_client_command_simple(client, "admin", command, NULL, &reply, &error);
 
 	bson_destroy(&reply);
 	bson_destroy(command);
 
 	return retval;
+}
+
+bool MongoDatabase::create_user(const char* user_name) {
+	bson_t *document = BCON_NEW("name", BCON_UTF8(user_name), "groups", "[", "]");
+
+	bson_t reply;
+	bool retval = mongoc_collection_insert_one(users_collection, document, nullptr, &reply, nullptr);
+
+	bson_destroy(&reply);
+	bson_destroy(document);
+
+	return retval;
+}
+
+bool MongoDatabase::add_user_to_group(const char* user_name, const char* group_name) {
+	bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name));
+	bson_t *update = BCON_NEW("$addToSet", "{", "groups", BCON_UTF8(group_name), "}");
+
+	bson_t reply;
+	bool retval = mongoc_collection_update_one(users_collection, selector, update, NULL, &reply, nullptr);
+
+	bson_destroy(&reply);
+	bson_destroy(selector);
+	bson_destroy(update);
+
+	return retval;
+}
+
+bool MongoDatabase::is_user_part_of_group(const char* user_name, const char* group_name) {
+
+}
+
+std::set<const char*> MongoDatabase::get_keys_of_group(const char* group_name) {
+
 }

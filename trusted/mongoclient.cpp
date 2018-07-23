@@ -14,7 +14,13 @@ int ecall_mongoclient_sample() {
 
 	MongoDatabase database;
 
-	printf("PING %s\n", database.ping() ? "true" : "false");
+	printf("PING %s\n", database.ping() ? "success" : "fail");
+
+	bool status = database.create_user("toto");
+	printf("Creating user toto: %s\n", status ? "success" : "fail");
+
+	status = database.add_user_to_group("toto", "group2");
+	printf("Add toto to group2: %s\n", status ? "success" : "fail");
 
 	return 0;
 }
