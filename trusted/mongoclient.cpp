@@ -2,22 +2,9 @@
 #include <stdio.h>      /* vsnprintf */
 
 #include <mongoc.h>
-#include "ssl_wrappers.h"
 
 #include "mongoclient.h"
 #include "mongoclient_t.h"  /* print_string */
-
-struct tm * localtime_r(const time_t *t, struct tm *tp) {
-	struct tm *l = sgx_localtime(t);
-	if (!l)
-		return 0;
-	*tp = *l;
-	return tp;
-}
-
-int gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
-	return sgx_gettimeofday(tp);
-}
 
 int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");

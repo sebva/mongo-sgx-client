@@ -1,5 +1,17 @@
 #include "ssl_wrappers.h"
 
+struct tm * localtime_r(const time_t *t, struct tm *tp) {
+	struct tm *l = sgx_localtime(t);
+	if (!l)
+		return 0;
+	*tp = *l;
+	return tp;
+}
+
+int gettimeofday(struct timeval *restrict tp, void *restrict tzp) {
+	return sgx_gettimeofday(tp);
+}
+
 long sgx_clock(void)
 {
 	long retv;

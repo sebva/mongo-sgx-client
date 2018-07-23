@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 int printf(const char *fmt, ...);
+int ecall_mongoclient_sample();
 
 #if defined(__cplusplus)
 }
