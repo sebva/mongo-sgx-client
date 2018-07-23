@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 struct tm * localtime_r(const time_t *t, struct tm *tp);
-int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
+int gettimeofday(struct timeval *tp, void *tzp);
 long sgx_clock(void); /* For Performance evaluation */
 time_t sgx_time(time_t *timep);
 struct tm *sgx_localtime(const time_t *timep);
