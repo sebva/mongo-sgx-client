@@ -42,6 +42,7 @@ extern "C" {
 	int ocall_gethostname(char *name, size_t namelen);
 	pid_t ocall_getpid(void);
 	int ocall_usleep(useconds_t usec);
+	time_t ocall_time(time_t *tloc);
 
 #if defined(__cplusplus)
 }

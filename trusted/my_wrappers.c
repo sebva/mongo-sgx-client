@@ -1,6 +1,9 @@
 #include "my_wrappers.h"
 
 #include <string.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "mongoclient_t.h"
 
 void *native_malloc(size_t size) {
@@ -500,6 +503,27 @@ int vsscanf(const char *str, const char *format, va_list args) {
 	return val_cnt;
 }
 
+time_t time(time_t *tloc) {
+	time_t retval;
+
+	int sgx_retval = ocall_time(&retval, tloc);
+	if (sgx_retval != SGX_SUCCESS) {
+		printf("Error in time OCALL\n");
+		sgx_exit();
+	}
+
+	return retval;
+}
+
 int SSL_CTX_set_default_verify_paths(void *ctx) {
 	return 1;
 }
+
+const int _sys_nerr_internal = 0;
+const char *const _sys_errlist_internal[0] = {};
+
+/* Fill buf with a string describing the errno code in ERRNUM.  */
+int __xpg_strerror_r(int errnum, char *buf, size_t buflen) {
+	return EINVAL;
+}
+

@@ -36,6 +36,7 @@ enclave {
 		//int getsockname(int socket, struct sockaddr *address, socklen_t *address_len);
 		pid_t ocall_getpid(void);
 		int ocall_usleep(useconds_t usec);
+		time_t ocall_time([in, out] time_t *tloc);
     };
 
 

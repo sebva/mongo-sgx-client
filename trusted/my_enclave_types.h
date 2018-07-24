@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <time.h>
 
 
 #ifndef MONGOCLIENT_U_H__

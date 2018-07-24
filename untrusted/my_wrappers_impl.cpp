@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <stropts.h>
 #include <cstdio>
+#include <time.h>
 
 void* ocall_malloc(size_t size) {
 	return malloc(size);
@@ -126,4 +127,8 @@ pid_t ocall_getpid(void) {
 
 int ocall_usleep(useconds_t usec) {
 	return usleep(usec);
+}
+
+time_t ocall_time(time_t *tloc) {
+	return time(tloc);
 }
