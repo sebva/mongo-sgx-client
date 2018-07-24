@@ -8,6 +8,6 @@
 #ifndef TRUSTED_INCLUDE_UNISTD_H_
 #define TRUSTED_INCLUDE_UNISTD_H_
 
-typedef long useconds_t;
+typedef unsigned int useconds_t;
 
 #endif /* TRUSTED_INCLUDE_UNISTD_H_ */
