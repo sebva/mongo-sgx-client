@@ -527,3 +527,8 @@ int __xpg_strerror_r(int errnum, char *buf, size_t buflen) {
 	return EINVAL;
 }
 
+int rand_r(unsigned int *seedp) {
+	srand(*seedp);
+	return rand();
+}
+
