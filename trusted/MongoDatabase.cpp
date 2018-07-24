@@ -9,6 +9,7 @@
 
 #include "ssl_wrappers.h"
 
+
 MongoDatabase::MongoDatabase(bool enable_tracing) {
 	// Required to initialize libmongoc's internals
 	mongoc_init();
@@ -61,44 +62,76 @@ bool MongoDatabase::ping() {
 	bson_error_t error;
 	bson_t *command = BCON_NEW("ping", BCON_INT32 (1));
 
-	bool retval = mongoc_client_command_simple(client, "admin", command, NULL, &reply, &error);
+	bool retval = mongoc_client_command_simple(client, "admin", command, nullptr, &reply, &error);
 
 	bson_destroy(&reply);
 	bson_destroy(command);
 
+	throw_potential_error(error);
 	return retval;
 }
 
-bool MongoDatabase::create_user(const char* user_name) {
-	bson_t *document = BCON_NEW("name", BCON_UTF8(user_name), "groups", "[", "]");
+void MongoDatabase::delete_user(const char* user_name) {
+	bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name));
 
 	bson_t reply;
-	bool retval = mongoc_collection_insert_one(users_collection, document, nullptr, &reply, nullptr);
+	bson_error_t error;
+	bool retval = mongoc_collection_delete_one(users_collection, selector, nullptr, &reply, &error);
 
 	bson_destroy(&reply);
-	bson_destroy(document);
+	bson_destroy(selector);
 
-	return retval;
+	throw_potential_error(error);
 }
 
-bool MongoDatabase::add_user_to_group(const char* user_name, const char* group_name) {
+void MongoDatabase::add_user_to_group(const char* user_name, const char* group_name) {
 	bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name));
 	bson_t *update = BCON_NEW("$addToSet", "{", "groups", BCON_UTF8(group_name), "}");
 
 	bson_t reply;
-	bool retval = mongoc_collection_update_one(users_collection, selector, update, NULL, &reply, nullptr);
+	bson_error_t error;
+	bool retval = mongoc_collection_update_one(users_collection, selector, update, nullptr, &reply, &error);
 
 	bson_destroy(&reply);
 	bson_destroy(selector);
 	bson_destroy(update);
 
-	return retval;
+	throw_potential_error(error);
+}
+
+void MongoDatabase::remove_user_from_group(const char* user_name, const char* group_name) {
+	bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name));
+	bson_t *update = BCON_NEW("$pull", "{", "groups", BCON_UTF8(group_name), "}");
+
+	bson_t reply;
+	bson_error_t error;
+	bool retval = mongoc_collection_update_one(users_collection, selector, update, nullptr, &reply, &error);
+
+	bson_destroy(&reply);
+	bson_destroy(selector);
+	bson_destroy(update);
+
+	throw_potential_error(error);
 }
 
 bool MongoDatabase::is_user_part_of_group(const char* user_name, const char* group_name) {
+	bson_t *query = BCON_NEW("name", BCON_UTF8(user_name), "groups", BCON_UTF8(group_name));
+	bson_t *opts = BCON_NEW("limit", BCON_INT32(1), "projection", "{", "_id", BCON_BOOL(true), "}");
 
-}
+	mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, opts, nullptr);
+	bson_destroy(query);
+	bson_destroy(opts);
 
-std::set<const char*> MongoDatabase::get_keys_of_group(const char* group_name) {
+	const bson_t *ignored;
+	bool document_exists = mongoc_cursor_next(cursor, &ignored);
 
+	bson_error_t error;
+	if (mongoc_cursor_error(cursor, &error)) {
+		mongoc_cursor_destroy(cursor);
+		throw error.code;
+	}
+
+	mongoc_cursor_destroy(cursor);
+
+	return document_exists;
 }
