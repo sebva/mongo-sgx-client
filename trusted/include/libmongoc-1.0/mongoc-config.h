@@ -25,7 +25,7 @@
 #define MONGOC_USER_SET_LDFLAGS ""
 
 /* MONGOC_CC is used to determine what C compiler was used to compile mongoc */
-#define MONGOC_CC "/usr/bin/cc"
+#define MONGOC_CC "/tmp/gcc"
 
 /*
  * MONGOC_ENABLE_SSL_SECURE_CHANNEL is set from configure to determine if we are
@@ -353,7 +353,7 @@
  * entry/exit of certain functions.
  *
  */
-#define MONGOC_TRACE 0
+#define MONGOC_TRACE 1
 
 #if MONGOC_TRACE != 1
 #  undef MONGOC_TRACE
