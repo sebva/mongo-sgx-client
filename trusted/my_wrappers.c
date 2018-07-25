@@ -6,35 +6,6 @@
 #include <stdarg.h>
 #include "mongoclient_t.h"
 
-void *native_malloc(size_t size) {
-	void* buffer;
-
-	int sgx_retval = ocall_malloc(&buffer, size);
-	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in malloc OCALL\n");
-		sgx_exit();
-	}
-
-	if (!sgx_is_outside_enclave(buffer, size)) {
-		printf("Rebinding attack detected! ABORT.\n");
-		sgx_exit();
-	}
-
-	return buffer;
-}
-
-void native_free(void *ptr) {
-	if (!sgx_is_outside_enclave(ptr, 1)) {
-		printf("Trying to native free trusted memory.\n");
-		sgx_exit();
-	}
-	int sgx_retval = ocall_free(ptr);
-	if (sgx_retval != SGX_SUCCESS) {
-		printf("Error in free OCALL\n");
-		sgx_exit();
-	}
-}
-
 int access(const char *path, int amode) {
 	int retval;
 
@@ -115,8 +86,8 @@ int getsockopt(int socket, int level, int option_name,
 		void *restrict option_value, socklen_t *restrict option_len) {
 	int retval;
 
-	void* native_option_value = native_malloc(*option_len);
-	socklen_t* native_option_len = native_malloc(sizeof(socklen_t));
+	void* native_option_value = sgx_ocalloc(*option_len);
+	socklen_t *native_option_len = sgx_ocalloc(sizeof(socklen_t));
 
 	memcpy(native_option_value, option_value, *option_len);
 	*native_option_len = *option_len;
@@ -131,9 +102,6 @@ int getsockopt(int socket, int level, int option_name,
 	size_t final_len = *option_len;
 	memcpy(option_value, native_option_value, final_len);
 	*option_len = *native_option_len;
-
-	native_free(native_option_value);
-	native_free(native_option_len);
 
 	return retval;
 }
@@ -281,13 +249,7 @@ ssize_t send(int socket, const void *buffer, size_t length, int flags) {
 ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 	ssize_t retval;
 
-	// Array where we keep all pointer we allocated for easy freeing at the end
-	size_t nb_mallocs = 4 + (message->msg_iovlen * 2);
-	void **native_pointers_to_free = malloc(nb_mallocs);
-	int index = 0;
-
-	struct msghdr *message_native = native_malloc(sizeof(struct msghdr));
-	native_pointers_to_free[index++] = message_native;
+	struct msghdr *message_native = sgx_ocalloc(sizeof(struct msghdr));
 
 	// Copy trivial values
 	message_native->msg_controllen = message->msg_controllen;
@@ -296,48 +258,30 @@ ssize_t sendmsg(int socket, const struct msghdr *message, int flags) {
 	message_native->msg_namelen = message->msg_namelen;
 
 	// Now onto slightly more difficult values
-	void* msg_control_native = native_malloc(message->msg_controllen);
-	native_pointers_to_free[index++] = msg_control_native;
+	void* msg_control_native = sgx_ocalloc(message->msg_controllen);
 	memcpy(msg_control_native, message->msg_control, message->msg_controllen);
 	message_native->msg_control = msg_control_native;
 
-	void* msg_name_native = native_malloc(message->msg_namelen);
-	native_pointers_to_free[index++] =
-	memcpy(msg_name_native, message->msg_name, message->msg_namelen);
+	void *msg_name_native = sgx_ocalloc(message->msg_namelen);
 	message_native->msg_name = msg_name_native;
 
 	// And finally, the complex value
-	struct iovec *iov_array_native = native_malloc(message->msg_iovlen * sizeof(struct iovec));
-	native_pointers_to_free[index++] = iov_array_native;
+	struct iovec *iov_array_native = sgx_ocalloc(message->msg_iovlen * sizeof(struct iovec));
 	message_native->msg_iov = iov_array_native;
 
 	for (int i = 0; i < message->msg_iovlen; i++) {
-		struct iovec *iov_native = native_malloc(sizeof(struct iovec));
-		native_pointers_to_free[index++] = iov_native;
+		struct iovec *iov_native = sgx_ocalloc(sizeof(struct iovec));
 
 		size_t len = (message->msg_iov[i]).iov_len;
 		iov_native->iov_len = len;
-		void *iov_base_native = native_malloc(len);
-		native_pointers_to_free[index++] = iov_base_native;
+		void *iov_base_native = sgx_ocalloc(len);
 		memcpy(iov_base_native, (message->msg_iov[i]).iov_base, len);
 		iov_native->iov_base = iov_base_native;
 
 		iov_array_native[i] = *iov_native;
 	}
 
-	// Be sure that nb_mallocs is correct
-	if (index != nb_mallocs) {
-		printf("ERROR in computation of nb_mallocs in sendmsg\n");
-		sgx_exit(1);
-		return 0;
-	}
-
 	int sgx_retval = ocall_sendmsg(&retval, socket, message_native, flags);
-
-	// Free all that memory we allocated earlier
-	for (int i = 0; i < nb_mallocs; i++) {
-		native_free(native_pointers_to_free[i]);
-	}
 
 
 	if (sgx_retval != SGX_SUCCESS) {
