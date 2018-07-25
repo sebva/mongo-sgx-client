@@ -60,7 +60,7 @@ Mongoclient_Cpp_Flags :=  $(Common_C_Cpp_Flags) -std=c++11 -nostdinc++ -fno-buil
 Mongoclient_Cpp_Flags := $(Mongoclient_Cpp_Flags)  -fno-builtin-printf
 
 Mongoclient_Link_Flags := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefaultlibs -nostartfiles -L$(SGX_LIBRARY_PATH) \
-	-Wl,--warn-unresolved-symbols $(LIB_MONGOC) trusted/lib/libssl.a trusted/lib/libcrypto.a \
+	$(LIB_MONGOC) trusted/lib/libssl.a trusted/lib/libcrypto.a \
 	-Wl,--whole-archive -l$(Trts_Library_Name) -Wl,--no-whole-archive \
 	-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -l$(Crypto_Library_Name) -l$(Service_Library_Name) -Wl,--end-group \
 	-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined \

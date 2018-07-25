@@ -19,7 +19,7 @@
 int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");
 
-	MongoDatabase database;
+	MongoDatabase database(true);
 
 	printf("PING %s\n", database.ping() ? "success" : "fail");
 

@@ -338,3 +338,50 @@ const int32_t **__ctype_tolower_loc(void)
 {
     return (const int32_t **)&ptable2;
 }
+
+
+/*
+ * Define missing stuff
+ */
+
+struct ssl_ctx_st;
+typedef struct ssl_ctx_st SSL_CTX;
+
+int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file) {
+	printf("Call to stub SSL_CTX_use_certificate_chain_file");
+	return 1;
+}
+
+int SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type) {
+	printf("Call to stub SSL_CTX_use_PrivateKey_file");
+	return 1;
+}
+
+int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile, const char *CApath) {
+	printf("Call to stub SSL_CTX_load_verify_locations");
+	return 1;
+}
+
+struct x509_lookup_method_st;
+typedef struct x509_lookup_method_st X509_LOOKUP_METHOD;
+
+X509_LOOKUP_METHOD *X509_LOOKUP_file(void) {
+	printf("Call to stub X509_LOOKUP_file");
+	return 1;
+}
+
+struct x509_lookup_st;
+typedef struct x509_lookup_st X509_LOOKUP;
+
+int X509_load_crl_file(X509_LOOKUP *ctx, const char *file, int type) {
+	printf("Call to stub X509_load_crl_file");
+	return 1;
+}
+
+struct bio_method_st;
+typedef struct bio_method_st BIO_METHOD;
+
+const BIO_METHOD *BIO_s_file(void) {
+	printf("Call to stub BIO_s_file");
+	return 1;
+}

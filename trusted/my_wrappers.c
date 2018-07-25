@@ -532,3 +532,13 @@ int rand_r(unsigned int *seedp) {
 	return rand();
 }
 
+int __isoc99_sscanf (const char *s, const char *format, ...) {
+	va_list arg;
+	int done;
+
+	va_start(arg, format);
+	done = vsscanf(s, format, arg);
+	va_end (arg);
+
+	return done;
+}
