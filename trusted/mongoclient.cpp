@@ -19,24 +19,43 @@
 int ecall_mongoclient_sample() {
 	printf("IN MONGOCLIENT\n");
 
-	MongoDatabase database(true);
+	MongoDatabase database(false);
 
 	printf("PING %s\n", database.ping() ? "success" : "fail");
+
+	printf("Init collection");
+	database.init_collection();
 
 	printf("Generating key\n");
 	uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2'};
 
-	printf("Creating user toto\n");
-	database.create_user<KEY_LENGTH>("toto", key);
+	try {
+		printf("Creating user toto\n");
+		database.create_user<KEY_LENGTH>("toto", key);
+	} catch (uint32_t error_code) {
+		printf("ERROR: exception thrown when adding toto. Did a previous "
+				"run fail?. Error %ld\n.",
+				error_code);
+	}
 
 	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
 
 	printf("Adding toto to group1\n");
 	database.add_user_to_group("toto", "group1");
 
+	printf("Adding toto to group1 again\n");
+	database.add_user_to_group("toto", "group1");
+
 	//*
 	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
 	//*/
+
+	try {
+		printf("Creating user toto again\n");
+		database.create_user<KEY_LENGTH>("toto", key);
+	} catch(uint32_t error_code) {
+		printf("OK, exception thrown when adding toto again. Error %ld\n.", error_code);
+	}
 
 	//*
 	printf("All keys of group1\n");
@@ -60,4 +79,3 @@ int ecall_mongoclient_sample() {
 	//*/
 	return 0;
 }
-
