@@ -23,7 +23,7 @@ time_t sgx_time(time_t *timep)
 {
 	time_t retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_time(&retv, timep, sizeof(time_t))) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_time(&retv, timep, sizeof(time_t))) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -68,7 +68,7 @@ int sgx_getsockopt(int s, int level, int optname, char *optval, int* optlen)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_getsockopt(&retv, s, level, optname, optval, *optlen, optlen)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_getsockopt(&retv, s, level, optname, optval, *optlen, optlen)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -79,7 +79,7 @@ int sgx_setsockopt(int s, int level, int optname, const void *optval, int optlen
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_setsockopt(&retv, s, level, optname, optval, optlen)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_setsockopt(&retv, s, level, optname, optval, optlen)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -90,7 +90,7 @@ int sgx_socket(int af, int type, int protocol)
 {
 		int retv;
 		sgx_status_t sgx_retv;
-		if((sgx_retv = ocall_sgx_socket(&retv, af, type, protocol)) != SGX_SUCCESS){
+		if((sgx_retv = ocall_socket(&retv, af, type, protocol)) != SGX_SUCCESS){
 			printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 			sgx_exit(EXIT_FAILURE);
 		}
@@ -101,7 +101,7 @@ int sgx_bind(int s, const struct sockaddr *addr, int addrlen)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_bind(&retv, s, addr, addrlen)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_bind(&retv, s, addr, addrlen)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -112,7 +112,7 @@ int sgx_listen(int s, int backlog)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_listen(&retv, s, backlog)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_listen(&retv, s, backlog)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -123,7 +123,7 @@ int sgx_connect(int s, const struct sockaddr *addr, int addrlen)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_connect(&retv, s, addr, addrlen)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_connect(&retv, s, addr, addrlen)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -134,7 +134,7 @@ int sgx_accept(int s, struct sockaddr *addr, int *addrlen)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_accept(&retv, s, addr, sizeof(struct sockaddr), addrlen)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_accept(&retv, s, addr, sizeof(struct sockaddr), addrlen)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -145,7 +145,7 @@ int sgx_accept(int s, struct sockaddr *addr, int *addrlen)
 int sgx_shutdown(int fd, int how)
 {
 	int retv;
-	ocall_sgx_shutdown(&retv, fd, how);
+	ocall_shutdown(&retv, fd, how);
 	return retv;
 }
 
@@ -153,7 +153,7 @@ int sgx_read(int fd, void *buf, int n)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv = ocall_sgx_read(&retv, fd, buf, n)) != SGX_SUCCESS) {
+	if((sgx_retv = ocall_read(&retv, fd, buf, n)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -175,7 +175,7 @@ int sgx_close(int fd)
 {
 	int retv;
 	sgx_status_t sgx_retv;
-	if((sgx_retv =	ocall_sgx_close(&retv, fd)) != SGX_SUCCESS) {
+	if((sgx_retv =	ocall_close(&retv, fd)) != SGX_SUCCESS) {
 		printf("OCALL FAILED!, Error code = %d\n", sgx_retv);
 		sgx_exit(EXIT_FAILURE);
 	}
@@ -196,7 +196,7 @@ int sgx_printf(const char *fmt, ...)
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     int ret;
-    ocall_print_string(&ret, buf);
+    ocall_print(&ret, buf);
     return ret;
 }
 
@@ -214,7 +214,7 @@ int sgx_printe(const char *fname, const char *fmt, ...)
     va_end(ap);
     snprintf(ebuf, sizeof(ebuf), "Error: %s failed!: %s\n", fname, buf);
     int ret;
-    ocall_print_string(&ret, ebuf);
+    ocall_print(&ret, ebuf);
     return ret;
 }
 
@@ -228,7 +228,7 @@ int sgx_printl(const char *fname, const char *fmt, ...)
     va_end(ap);
     snprintf(ebuf, sizeof(ebuf), "LOG: %s: %s\n", fname, buf);
     int ret;
-    ocall_print_string(&ret, ebuf);
+    ocall_print(&ret, ebuf);
     return ret;
 }
 

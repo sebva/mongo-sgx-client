@@ -82,7 +82,7 @@ void freeaddrinfo(struct addrinfo *res) {
 
 int putchar(int c) {
 	char string[] = { (char) c, '\0' };
-	if( ocall_print_string(string) == SGX_SUCCESS )
+	if( ocall_print(string) == SGX_SUCCESS )
     	return c;
     else
         return EOF;
