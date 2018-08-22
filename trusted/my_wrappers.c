@@ -4,7 +4,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
+#ifdef ABEMONGO
+#include <enclave_anonymbe_t.h>
+#else
 #include "mongoclient_t.h"
+#endif
 
 void *native_malloc(size_t size) {
 	void* buffer;
@@ -78,9 +82,10 @@ void freeaddrinfo(struct addrinfo *res) {
 
 int putchar(int c) {
 	char string[] = { (char) c, '\0' };
-	int ret;
-	ocall_print_string(&ret, string);
-	return ret;
+	if( ocall_print_string(string) == SGX_SUCCESS )
+    	return c;
+    else
+        return EOF;
 }
 
 int fcntl(int fildes, int cmd, ...) {

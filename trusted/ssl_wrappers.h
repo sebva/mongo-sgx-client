@@ -10,7 +10,7 @@
 
 #include "sgx_trts.h"
 
-#include "mongoclient_t.h"
+//#include "mongoclient_t.h"
 
 #if defined(__cplusplus)
 extern "C" {
