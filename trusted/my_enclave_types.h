@@ -29,9 +29,7 @@ typedef __pid_t pid_t;
 #endif /* MONGOCLIENT_U_H__ */
 
 # ifndef __useconds_t_defined
-#ifdef ENCLAVED
 typedef unsigned int __useconds_t;
-#endif
 typedef __useconds_t useconds_t;
 #  define __useconds_t_defined
 # endif

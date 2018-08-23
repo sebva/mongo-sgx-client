@@ -13,7 +13,7 @@
 #include <array>
 
 
-#define KEY_LENGTH 7
+#define KEY_LENGTH 32
 
 
 int ecall_mongoclient_sample() {
@@ -24,10 +24,10 @@ int ecall_mongoclient_sample() {
 	printf("PING %s\n", database.ping() ? "success" : "fail");
 
 	printf("Generating key\n");
-	uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2'};
+	uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2', '\0'};
 
 	printf("Creating user toto\n");
-	database.create_user<KEY_LENGTH>("toto", key);
+	database.create_user("toto", std::string((const char*)key));
 
 	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
 
@@ -40,7 +40,7 @@ int ecall_mongoclient_sample() {
 
 	//*
 	printf("All keys of group1\n");
-	std::vector<std::array<uint8_t, KEY_LENGTH>> list = database.get_keys_of_group<KEY_LENGTH>("group1");
+	std::vector<std::array<uint8_t, KEY_LENGTH>> list = database.get_keys_of_group("group1");
 	int i = 1;
 	for(std::vector<std::array<uint8_t, KEY_LENGTH>>::iterator it = list.begin(); it != list.end(); it++, i++) {
 		printf("Key no %d: %s\n", i, (*it).data());

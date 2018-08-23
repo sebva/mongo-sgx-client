@@ -96,9 +96,9 @@ int ocall_sgx_getenv(const char *env, int envlen, char *ret_str,int ret_len)
 	return 0;
 }
 
-int ocall_print_string(const char *str)
+void ocall_print(const char *str)
 {
-    return printf("%s", str);
+    printf("%s", str);
 }
 
 void ocall_sgx_exit(int e)

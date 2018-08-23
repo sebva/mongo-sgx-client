@@ -1,4 +1,4 @@
-SGX_COMMONDIR := $(realpath ./sgx_common)
+SGX_COMMONDIR := $(realpath ../../../sgx_common)
 
 ######## Intel(R) SGX SDK Settings ########
 SGX_SDK ?= /opt/intel/sgxsdk
@@ -49,7 +49,7 @@ Crypto_Library_Name := sgx_tcrypto
 
 Mongoclient_Cpp_Files := trusted/mongoclient.cpp trusted/MongoDatabase.cpp
 Mongoclient_C_Files := trusted/pthread.c trusted/my_wrappers.c trusted/inet_pton_ntop.c trusted/ssl_wrappers.c
-Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR)
+Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR) -I../enclave/ -I$(SGX_COMMONDIR)/enclave_include
 
 
 Flags_Just_For_C := -Wno-implicit-function-declaration -std=c11
