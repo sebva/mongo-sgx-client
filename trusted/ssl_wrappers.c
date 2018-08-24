@@ -196,7 +196,7 @@ int sgx_printf(const char *fmt, ...)
     vsnprintf(buf, BUFSIZ, fmt, ap);
     va_end(ap);
     int ret;
-    ocall_print(&ret, buf);
+    ocall_print_string(&ret, buf);
     return ret;
 }
 
@@ -214,7 +214,7 @@ int sgx_printe(const char *fname, const char *fmt, ...)
     va_end(ap);
     snprintf(ebuf, sizeof(ebuf), "Error: %s failed!: %s\n", fname, buf);
     int ret;
-    ocall_print(&ret, ebuf);
+    ocall_print_string(&ret, ebuf);
     return ret;
 }
 
@@ -228,7 +228,7 @@ int sgx_printl(const char *fname, const char *fmt, ...)
     va_end(ap);
     snprintf(ebuf, sizeof(ebuf), "LOG: %s: %s\n", fname, buf);
     int ret;
-    ocall_print(&ret, ebuf);
+    ocall_print_string(&ret, ebuf);
     return ret;
 }
 
