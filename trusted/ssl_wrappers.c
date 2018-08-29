@@ -184,7 +184,7 @@ int sgx_close(int fd)
 
 char *sgx_getenv(const char *env)
 {
-	printf("SGXBOX: sgx_getenv: workaround\n");
+	printf("SGXBOX: sgx_getenv(%s): workaround\n", env);
 	return NULL;
 }
 
