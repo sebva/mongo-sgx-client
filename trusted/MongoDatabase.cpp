@@ -153,9 +153,9 @@ void MongoDatabase::create_user(const std::string &user_name, const std::string 
     throw_potential_error(error);
 }
 
-KeyArray MongoDatabase::get_keys_of_group(const char* group_name) {
+KeyArray MongoDatabase::get_keys_of_group( const std::string &group_name ) {
     bson_t *pipeline = BCON_NEW("pipeline", "[",
-            "{", "$match", "{", "groups", BCON_UTF8(group_name), "}", "}",
+            "{", "$match", "{", "groups", BCON_UTF8(group_name.c_str()), "}", "}",
             "{", "$project", "{", "key", BCON_BOOL(true), "_id", BCON_BOOL(false), "}", "}",
             "]");
 
