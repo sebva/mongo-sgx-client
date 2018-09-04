@@ -22,9 +22,9 @@ enclave {
 		int ocall_connect(int socket, [user_check] const struct sockaddr *address, socklen_t address_len) propagate_errno;
 		int ocall_listen(int socket, int backlog) propagate_errno;
 		int ocall_socket(int domain, int type, int protocol) propagate_errno;
-		ssize_t ocall_recv(int socket, [out, size=length] void *buffer, size_t length, int flags) propagate_errno;
-		ssize_t ocall_send(int socket, [in, size=length] const void *buffer, size_t length, int flags) propagate_errno;
-		ssize_t ocall_sendmsg(int socket, [user_check] const struct msghdr *message, int flags) propagate_errno;
+		ssize_t ocall_recv(int socket, [out, size=length] void *buffer, size_t length, int flags) propagate_errno transition_using_threads;
+		ssize_t ocall_send(int socket, [in, size=length] const void *buffer, size_t length, int flags) propagate_errno transition_using_threads;
+		ssize_t ocall_sendmsg(int socket, [user_check] const struct msghdr *message, int flags) propagate_errno transition_using_threads;
 		//struct servent *ocall_getservbyname(const char *name, const char *proto);
 		struct hostent *ocall_gethostbyname([in, string] const char *name);
 		int ocall_getnameinfo([in, size=addrlen] const struct sockaddr *addr, socklen_t addrlen, [in, out, size=hostlen] char *host, socklen_t hostlen, [in, out, size=servlen] char *serv, socklen_t servlen, int flags);

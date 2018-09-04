@@ -45,7 +45,7 @@ MongoDatabase::MongoDatabase(bool enable_tracing) {
 	/*
 	 * Get a handle on the database "db_name" and collection "coll_name"
 	 */
-	users_collection = mongoc_client_get_collection(client, "test", "users");
+	users_collection = mongoc_client_get_collection(client, DB_NAME, COLLECTION_NAME);
 }
 
 MongoDatabase::~MongoDatabase() {
@@ -55,6 +55,33 @@ MongoDatabase::~MongoDatabase() {
 	// Freeing the memory segfaults for some reason
 	// mongoc_client_destroy(client);
 	mongoc_cleanup();
+}
+
+bool MongoDatabase::init_collection() {
+    bson_t reply;
+    bson_error_t error;
+
+    mongoc_database_t *database = mongoc_client_get_database(client, DB_NAME);
+
+#pragma region First index, guarantee unicity of names
+    bson_t *command = BCON_NEW(
+        "createIndexes", BCON_UTF8(COLLECTION_NAME), "indexes", "[",
+			"{", "key", "{", "name", BCON_INT32(1), "}", "name", "user_name_unique", "unique", BCON_BOOL(true), "}",
+			"{", "key", "{", "groups", BCON_INT32(1), "}", "name", "groups_performance", "}",
+		 "]");
+
+    bool retval = mongoc_database_write_command_with_opts(
+        database, command, nullptr, &reply, &error);
+
+    const char *reply_str = bson_as_json(&reply, NULL);
+    printf("%s\n", reply_str);
+
+    bson_destroy(&reply);
+    bson_destroy(command);
+
+    throw_potential_error(error);
+
+    return retval;
 }
 
 bool MongoDatabase::ping() {

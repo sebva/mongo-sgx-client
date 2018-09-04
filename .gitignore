@@ -6,7 +6,14 @@ sample
 *_t.c
 *_t.h
 
-# Created by https://www.gitignore.io/api/c++,eclipse
+# Created by https://www.gitignore.io/api/c++,eclipse,code
+
+### Code ###
+# Visual Studio Code - https://code.visualstudio.com/
+.settings/
+.vscode/
+tsconfig.json
+jsconfig.json
 
 ### C++ ###
 # Prerequisites

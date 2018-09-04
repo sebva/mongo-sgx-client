@@ -10,6 +10,7 @@
 
 
 #include <sgx_urts.h>
+#include <sgx_uswitchless.h>
 #include "sample.h"
 
 #include "mongoclient_u.h"
@@ -167,7 +168,13 @@ int initialize_enclave(void)
     /* Step 2: call sgx_create_enclave to initialize an enclave instance */
     /* Debug Support: set 2nd parameter to 1 */
 
-    ret = sgx_create_enclave(MONGOCLIENT_FILENAME, SGX_DEBUG_FLAG, &token, &updated, &global_eid, NULL);
+    sgx_uswitchless_config_t switchless_config = { 0, 1, 1, SL_DEFAULT_FALLBACK_RETRIES, SL_DEFAULT_SLEEP_RETRIES, { 0 } };
+    const void* enclave_ex_p[32] = { 0 };
+    enclave_ex_p[SGX_CREATE_ENCLAVE_EX_SWITCHLESS_BIT_IDX] = &switchless_config;
+
+    ret = sgx_create_enclave_ex(MONGOCLIENT_FILENAME, SGX_DEBUG_FLAG, &token,
+                                &updated, &global_eid, NULL,
+                                SGX_CREATE_ENCLAVE_EX_SWITCHLESS, enclave_ex_p);
 
     if (ret != SGX_SUCCESS) {
         print_error_message(ret);

@@ -1,0 +1,6 @@
+set breakpoint pending on
+break /home/sebastien/git/linux-sgx/sdk/trts/trts_ocall.cpp:71
+ignore 1 10000
+run
+info breakpoints
+quit
