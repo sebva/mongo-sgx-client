@@ -165,6 +165,7 @@ bool MongoDatabase::is_user_part_of_group(const char* user_name, const char* gro
 
 void MongoDatabase::create_group( const std::string &gname,
                                   const std::string &uid ) {
+    add_user_to_group( gname, uid );
 }
 
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {
