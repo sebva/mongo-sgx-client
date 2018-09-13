@@ -17,7 +17,7 @@ public:
 	MongoDatabase(bool enable_tracing = false);
 	virtual ~MongoDatabase();
 
-	bool init_collection();
+	bool init();
 	bool ping();
 	void delete_user(const char* user_name);
 	void add_user_to_group(const std::string &group_name, const std::string &user_name);

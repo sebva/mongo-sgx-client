@@ -57,7 +57,7 @@ MongoDatabase::~MongoDatabase() {
 	mongoc_cleanup();
 }
 
-bool MongoDatabase::init_collection() {
+bool MongoDatabase::init() {
     bson_t reply;
     bson_error_t error;
 
