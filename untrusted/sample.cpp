@@ -169,7 +169,7 @@ int initialize_enclave(void)
     /* Debug Support: set 2nd parameter to 1 */
 
     sgx_uswitchless_config_t switchless_config = { 0, 1, 1, SL_DEFAULT_FALLBACK_RETRIES, SL_DEFAULT_SLEEP_RETRIES, { 0 } };
-    void* enclave_ex_p[32] = { 0 };
+    const void* enclave_ex_p[32] = { 0 };
     enclave_ex_p[SGX_CREATE_ENCLAVE_EX_SWITCHLESS_BIT_IDX] = &switchless_config;
 
     ret = sgx_create_enclave_ex(MONGOCLIENT_FILENAME, SGX_DEBUG_FLAG, &token,
