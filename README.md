@@ -51,3 +51,19 @@ rs.initiate({
 mongodb://sgx-2.maas:27017,sgx-3.maas:27017/?replicaSet=rs0&ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true
 ```
 
+# Deploying to Kubernetes
+
+1. Configure your Docker login on Kubernetes for access to private SCONE repository: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+```
+kubectl create secret docker-registry regcred --docker-server=<your-registry-server> --docker-username=<your-name> --docker-password=<your-pword> --docker-email=<your-email>
+```
+2. Create a secret for the certificate file of Mongo:
+```
+openssl req -newkey rsa:2048 -new -x509 -days 365 -nodes -out mongodb-cert.crt -keyout mongodb-cert.key
+cat mongodb-cert.key mongodb-cert.crt > combined.pem
+kubectl create secret generic mongo-certificate --from-file=combined.pem=combined.pem
+```
+3. Deploy MongoDB
+```
+kubectl apply -f mongodb-service.yml
+```
