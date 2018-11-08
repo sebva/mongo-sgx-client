@@ -145,8 +145,8 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
 	throw_potential_error(error);
 }
 
-bool MongoDatabase::is_user_part_of_group(const char* user_name, const char* group_name) {
-	bson_t *query = BCON_NEW("name", BCON_UTF8(user_name), "groups", BCON_UTF8(group_name));
+bool MongoDatabase::is_user_part_of_group(const std::string &user_name, const std::string &group_name) {
+	bson_t *query = BCON_NEW("name", BCON_UTF8(user_name.c_str()), "groups", BCON_UTF8(group_name.c_str()));
 	bson_t *opts = BCON_NEW("limit", BCON_INT32(1), "projection", "{", "_id", BCON_BOOL(true), "}");
 
 	mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, opts, nullptr);
