@@ -59,11 +59,11 @@ MongoDatabase::~MongoDatabase() {
 	mongoc_cleanup();
 }
 
-bool MongoDatabase::init(const std::string &mongo_hostport) {
+bool MongoDatabase::init(const std::string &mongo_connection_string) {
     bson_t reply;
     bson_error_t error;
 
-    connection_url = "mongodb://" + mongo_hostport + "/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+    connection_url = mongo_connection_string;
     mongo_bootstrap();
     mongoc_database_t *database = mongoc_client_get_database(client, DB_NAME);
 
