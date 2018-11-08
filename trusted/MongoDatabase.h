@@ -23,7 +23,7 @@ public:
 	void delete_user(const char* user_name);
 	void add_user_to_group(const std::string &group_name, const std::string &user_name);
 	void remove_user_from_group(const std::string &group_name, const std::string &user_name);
-	bool is_user_part_of_group(const char* user_name, const char* group_name);
+	bool is_user_part_of_group(const std::string &user_name, const std::string &group_name);
 	void create_user(const std::string &user_name, const std::string &key);
     void create_group( const std::string &gname, const std::string &uid );
 	KeyArray get_keys_of_group( const std::string &group_name );
