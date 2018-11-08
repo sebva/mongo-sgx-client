@@ -17,7 +17,8 @@ public:
 	MongoDatabase(bool enable_tracing = false);
 	virtual ~MongoDatabase();
 
-	bool init();
+    void mongo_bootstrap();
+	bool init(const std::string &mongo);
 	bool ping();
 	void delete_user(const char* user_name);
 	void add_user_to_group(const std::string &group_name, const std::string &user_name);
@@ -29,7 +30,7 @@ public:
 private:
 	mongoc_client_t *client;
 	mongoc_collection_t *users_collection;
-	const char* CONNECTION_URL = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+    std::string connection_url;
 	const char* DB_NAME = "test";
 	const char* COLLECTION_NAME = "users";
 

@@ -17,10 +17,12 @@ MongoDatabase::MongoDatabase(bool enable_tracing) {
 	if (!enable_tracing) {
 		mongoc_log_trace_disable();
 	}
+}
 
+void MongoDatabase::mongo_bootstrap() {
 	// Safely create a MongoDB URI object from the given string
 	bson_error_t error;
-	mongoc_uri_t* uri = mongoc_uri_new_with_error(CONNECTION_URL, &error);
+	mongoc_uri_t* uri = mongoc_uri_new_with_error(connection_url.c_str(), &error);
 	if (!uri) {
 		printf("failed to parse URI: %s\n", error.message);
 		return;
@@ -57,10 +59,12 @@ MongoDatabase::~MongoDatabase() {
 	mongoc_cleanup();
 }
 
-bool MongoDatabase::init() {
+bool MongoDatabase::init(const std::string &mongo_hostport) {
     bson_t reply;
     bson_error_t error;
 
+    connection_url = "mongodb://" + mongo_hostport + "/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+    mongo_bootstrap();
     mongoc_database_t *database = mongoc_client_get_database(client, DB_NAME);
 
 #pragma region First index, guarantee unicity of names

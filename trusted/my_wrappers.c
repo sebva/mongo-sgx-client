@@ -6,6 +6,8 @@
 #include <stdarg.h>
 #ifdef ABEMONGO
 #include <enclave_anonymbe_t.h>
+#elif WRITERPROXY
+#include <enclave_writeproxy_t.h>
 #else
 #include "mongoclient_t.h"
 #endif
