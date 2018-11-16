@@ -111,6 +111,20 @@ void MongoDatabase::delete_user(const char* user_name) {
 	throw_potential_error(error);
 }
 
+void MongoDatabase::delete_all_data() {
+    bson_t *selector = BCON_NEW(nullptr);
+
+    bson_t reply;
+    bson_error_t error;
+    bool retval = mongoc_collection_delete_many(users_collection, selector,
+                                               nullptr, &reply, &error);
+
+    bson_destroy(&reply);
+    bson_destroy(selector);
+
+    throw_potential_error(error);
+}
+
 void MongoDatabase::add_user_to_group(const char* user_name, const char* group_name) {
 	bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name));
 	bson_t *update = BCON_NEW("$addToSet", "{", "groups", BCON_UTF8(group_name), "}");

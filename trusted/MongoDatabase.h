@@ -22,6 +22,7 @@ public:
 	bool ping();
 	void delete_user(const char* user_name);
 	void add_user_to_group(const char* user_name, const char* group_name);
+	void delete_all_data();
 	void remove_user_from_group(const char* user_name, const char* group_name);
 	bool is_user_part_of_group(const char* user_name, const char* group_name);
 private:
