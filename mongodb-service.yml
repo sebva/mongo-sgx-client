@@ -54,7 +54,13 @@ spec:
         - "/data/static/combined.pem"
         - "--sslAllowInvalidCertificates"
         ports:
-        - containerPort: 27017
+        - name: service-port
+          containerPort: 27017
+        livenessProbe:
+          tcpSocket:
+            port: service-port
+          initialDelaySeconds: 20
+          periodSeconds: 10
         volumeMounts:
         - name: secrets-volume
           readOnly: true
@@ -64,4 +70,3 @@ spec:
             intel.com/sgx: 10000
           limits:
             intel.com/sgx: 10000
-
