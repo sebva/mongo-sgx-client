@@ -67,3 +67,19 @@ kubectl create secret generic mongo-certificate --from-file=combined.pem=combine
 ```
 kubectl apply -f mongodb-service.yml
 ```
+4. Join the cluster from a local MongoDB shell
+    1. Port forward the first mongod to your local machine
+```
+kubectl port-forward mongod-0 27017
+```
+    2. Connect to localhost:27017 with a Mongo Shell and execute the following command:
+```javascript
+rs.initiate({
+    _id: "rs0",
+    members: [
+       { _id: 0, host : "mongod-0.mongodb-service.default.svc.cluster.local:27017" },
+       { _id: 1, host : "mongod-1.mongodb-service.default.svc.cluster.local:27017" },
+       { _id: 2, host : "mongod-2.mongodb-service.default.svc.cluster.local:27017" }
+    ]
+})
+```
