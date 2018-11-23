@@ -74,8 +74,8 @@ int ecall_mongoclient_sample() {
 	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
 
 	//*
-	printf("Delete toto\n");
-	database.delete_user("toto");
+	printf("Deleting everything\n");
+	database.delete_all_data();
 	//*/
 	return 0;
 }
