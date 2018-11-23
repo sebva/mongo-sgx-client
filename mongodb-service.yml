@@ -25,6 +25,16 @@ spec:
         role: mongo
         replicaset: rs0
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "role"
+                    operator: In
+                    values:
+                    - mongo
+              topologyKey: "kubernetes.io/hostname"
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
       - name: regcred
@@ -59,14 +69,14 @@ spec:
         livenessProbe:
           tcpSocket:
             port: service-port
-          initialDelaySeconds: 20
-          periodSeconds: 10
+          initialDelaySeconds: 10
+          periodSeconds: 5
         volumeMounts:
         - name: secrets-volume
           readOnly: true
           mountPath: /data/static
         resources:
           requests:
-            intel.com/sgx: 10000
+            intel.com/sgx: 10
           limits:
-            intel.com/sgx: 10000
+            intel.com/sgx: 10
