@@ -4,10 +4,10 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
-#ifdef ABEMONGO
-#include <enclave_anonymbe_t.h>
-#elif WRITERPROXY
+#ifdef WRITERPROXY
 #include <enclave_writeproxy_t.h>
+#elif ABEMONGO
+#include <enclave_anonymbe_t.h>
 #else
 #include "mongoclient_t.h"
 #endif
