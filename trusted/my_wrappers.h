@@ -56,7 +56,6 @@ int usleep(useconds_t usec);
 
 // Served locally
 int uname(struct utsname *name);
-int SSL_CTX_set_default_verify_paths(void *ctx);
 
 #if defined(__cplusplus)
 }
