@@ -19,6 +19,8 @@ metadata:
 spec:
   serviceName: mongodb-service
   replicas: 3
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -45,7 +47,7 @@ spec:
           defaultMode: 256
       containers:
       - name: mongod-container
-        image: sconecuratedimages/apps:mongodb-3.4.4-alpine
+        image: sebvaucher/anonymbe:0.27-mongodb
         env:
         - name: SCONE_MODE
           value: "HW"
@@ -67,10 +69,19 @@ spec:
         - name: service-port
           containerPort: 27017
         livenessProbe:
-          tcpSocket:
-            port: service-port
+          exec:
+            command:
+            - ./tlsping.sh
+            - localhost:27017
           initialDelaySeconds: 10
           periodSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - ./tlsping.sh
+            - localhost:27017
+          initialDelaySeconds: 4
+          periodSeconds: 3
         volumeMounts:
         - name: secrets-volume
           readOnly: true
