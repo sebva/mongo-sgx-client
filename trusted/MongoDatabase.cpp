@@ -161,10 +161,13 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
 bool MongoDatabase::is_user_part_of_group(const std::string &user_name, const std::string &group_name) {
 	bson_t *query = BCON_NEW("name", BCON_UTF8(user_name.c_str()), "groups", BCON_UTF8(group_name.c_str()));
 	bson_t *opts = BCON_NEW("limit", BCON_INT32(1), "projection", "{", "_id", BCON_BOOL(true), "}");
+	
+	mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_NEAREST);
 
-	mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, opts, nullptr);
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, opts, read_prefs);
 	bson_destroy(query);
 	bson_destroy(opts);
+	mongoc_read_prefs_destroy(read_prefs);
 
 	const bson_t *ignored;
 	bool document_exists = mongoc_cursor_next(cursor, &ignored);
@@ -204,9 +207,12 @@ KeyArray MongoDatabase::get_keys_of_group( const std::string &group_name ) {
             "{", "$project", "{", "key", BCON_BOOL(true), "_id", BCON_BOOL(false), "}", "}",
             "]");
 
-    mongoc_cursor_t *cursor = mongoc_collection_aggregate(users_collection, MONGOC_QUERY_NONE, pipeline, nullptr, nullptr);
+	mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_NEAREST);
+
+    mongoc_cursor_t *cursor = mongoc_collection_aggregate(users_collection, MONGOC_QUERY_NONE, pipeline, nullptr, read_prefs);
 
     bson_destroy(pipeline);
+    mongoc_read_prefs_destroy(read_prefs);
 
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
