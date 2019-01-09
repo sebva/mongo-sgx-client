@@ -176,7 +176,7 @@ bool MongoDatabase::is_user_part_of_group(const std::string &user_name,
                             BCON_BOOL(true), "}");
 
     mongoc_read_prefs_t *read_prefs =
-        mongoc_read_prefs_new(MONGOC_READ_NEAREST);
+        mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
 
     mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(
         users_collection, query, opts, read_prefs);
@@ -228,7 +228,7 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
                                 BCON_BOOL(false), "}", "}", "]");
 
     mongoc_read_prefs_t *read_prefs =
-        mongoc_read_prefs_new(MONGOC_READ_NEAREST);
+        mongoc_read_prefs_new(MONGOC_READ_SECONDARY_PREFERRED);
 
     mongoc_cursor_t *cursor = mongoc_collection_aggregate(
         users_collection, MONGOC_QUERY_NONE, pipeline, nullptr, read_prefs);
