@@ -5,7 +5,7 @@ static void pthread_print(const char* func_name) {
 }
 
 pthread_t pthread_self(void) {
-	pthread_print("self");
+	// pthread_print("self");
 }
 
 int pthread_once (void *once_control, void (*init_routine) (void)) {

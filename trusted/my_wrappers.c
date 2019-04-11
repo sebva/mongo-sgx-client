@@ -4,7 +4,13 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
+#ifdef WRITERPROXY
+#include <enclave_writeproxy_t.h>
+#elif ABEMONGO
+#include <enclave_anonymbe_t.h>
+#else
 #include "mongoclient_t.h"
+#endif
 
 int access(const char *path, int amode) {
 	int retval;
@@ -49,9 +55,11 @@ void freeaddrinfo(struct addrinfo *res) {
 
 int putchar(int c) {
 	char string[] = { (char) c, '\0' };
-	int ret;
-	ocall_print_string(&ret, string);
-	return ret;
+    int ret;
+	if( ocall_print_string(&ret,string) == SGX_SUCCESS )
+    	return c;
+    else
+        return EOF;
 }
 
 int fcntl(int fildes, int cmd, ...) {

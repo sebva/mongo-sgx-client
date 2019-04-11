@@ -184,7 +184,7 @@ int sgx_close(int fd)
 
 char *sgx_getenv(const char *env)
 {
-	printf("SGXBOX: sgx_getenv: workaround\n");
+	printf("SGXBOX: sgx_getenv(%s): workaround\n", env);
 	return NULL;
 }
 
@@ -367,7 +367,7 @@ typedef struct x509_lookup_method_st X509_LOOKUP_METHOD;
 
 X509_LOOKUP_METHOD *X509_LOOKUP_file(void) {
 	printf("Call to stub X509_LOOKUP_file");
-	return 1;
+	return (X509_LOOKUP_METHOD *)1;
 }
 
 struct x509_lookup_st;
@@ -383,5 +383,5 @@ typedef struct bio_method_st BIO_METHOD;
 
 const BIO_METHOD *BIO_s_file(void) {
 	printf("Call to stub BIO_s_file");
-	return 1;
+	return (BIO_METHOD *)1;
 }

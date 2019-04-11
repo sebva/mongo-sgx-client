@@ -25,6 +25,13 @@ typedef int32_t __pid_t;
 typedef __pid_t pid_t;
 # define __pid_t_defined
 #endif
-#endif
+
+#endif /* MONGOCLIENT_U_H__ */
+
+# ifndef __useconds_t_defined
+typedef unsigned int __useconds_t;
+typedef __useconds_t useconds_t;
+#  define __useconds_t_defined
+# endif
 
 #endif /* TRUSTED_MY_ENCLAVE_TYPES_H_ */

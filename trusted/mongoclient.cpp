@@ -13,25 +13,22 @@
 #include <array>
 
 
-#define KEY_LENGTH 7
-
-
 int ecall_mongoclient_sample() {
     printf("IN MONGOCLIENT\n");
 
     MongoDatabase database(false);
 
-    //printf("PING %s\n", database.ping() ? "success" : "fail");
+    // printf("PING %s\n", database.ping() ? "success" : "fail");
 
     printf("Init collection");
-    database.init_collection();
+    database.init("mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true");
 
     printf("Generating key\n");
     uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2'};
 
     try {
         printf("Creating user toto\n");
-        database.create_user<KEY_LENGTH>("toto", key);
+        database.create_user("toto", (const char *) key);
     } catch (uint32_t error_code) {
         printf("ERROR: exception thrown when adding toto. Did a previous "
                "run fail?. Error %ld\n.",
@@ -52,14 +49,14 @@ int ecall_mongoclient_sample() {
 
     try {
         printf("Creating user toto again\n");
-        database.create_user<KEY_LENGTH>("toto", key);
+        database.create_user("toto", (const char *) key);
     } catch (uint32_t error_code) {
         printf("OK, exception thrown when adding toto again. Error %ld\n.", error_code);
     }
 
     //*
     printf("All keys of group1\n");
-    std::vector<std::array<uint8_t, KEY_LENGTH>> list = database.get_keys_of_group<KEY_LENGTH>("group1");
+    KeyArray list = database.get_keys_of_group("group1");
     int i = 1;
     for (auto it = list.begin(); it != list.end(); it++, i++) {
         printf("Key no %d: %s\n", i, (*it).data());
