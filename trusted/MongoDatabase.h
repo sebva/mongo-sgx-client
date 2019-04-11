@@ -15,7 +15,7 @@
 
 class MongoDatabase : public Database {
 public:
-    explicit MongoDatabase(const std::string& connection_url, bool enable_tracing = false);
+    explicit MongoDatabase(const std::string &connection_url, bool enable_tracing = false);
 
     virtual ~MongoDatabase();
 
@@ -31,11 +31,11 @@ public:
 
     void remove_user_from_group(const std::string &group_name, const std::string &user_name);
 
-    bool is_user_part_of_group(const std::string &user_name, const std::string &group_name);
+    bool is_user_part_of_group(const std::string &group_name, const std::string &user_name);
 
     void create_user(const std::string &user_name, const std::string &key);
 
-    void create_group(const std::string &gname, const std::string &uid);
+    void create_group(const std::string &group_name, const std::string &user_name);
 
     KeyArray get_keys_of_group(const std::string &group_name);
 
@@ -53,6 +53,10 @@ private:
             throw error_code;
         }
     }
+
+    const bson_t *retrieve_user_document(const std::string &user_name);
+
+    void remove_user_from_all_groups(const std::string &user_name);
 };
 
 #endif /* TRUSTED_MONGODATABASE_H_ */

@@ -59,7 +59,6 @@ MongoDatabase::~MongoDatabase() {
 }
 
 bool MongoDatabase::init_collections() {
-    // TODO
     bson_t reply;
     bson_error_t error;
 
@@ -68,10 +67,9 @@ bool MongoDatabase::init_collections() {
     bson_t *command = BCON_NEW(
             "createIndexes", BCON_UTF8(USERS_COLLECTION_NAME), "indexes", "[",
             "{", "key", "{", "name", BCON_INT32(1), "}", "name", "user_name_unique", "unique", BCON_BOOL(true), "}",
-            "{", "key", "{", "groups", BCON_INT32(1), "}", "name", "groups_performance", "}",
             "]");
 
-    bool retval = mongoc_database_write_command_with_opts(database, command, nullptr, &reply, &error);
+    bool retval1 = mongoc_database_write_command_with_opts(database, command, nullptr, &reply, &error);
 
     const char *reply_str = bson_as_json(&reply, nullptr);
     printf("%s\n", reply_str);
@@ -81,17 +79,32 @@ bool MongoDatabase::init_collections() {
 
     throw_potential_error(error);
 
-    return retval;
+
+    command = BCON_NEW(
+            "createIndexes", BCON_UTF8(GROUPS_COLLECTION_NAME), "indexes", "[",
+            "{", "key", "{", "name", BCON_INT32(1), "}", "name", "group_name_unique", "unique", BCON_BOOL(true), "}",
+            "{", "key", "{", "name", BCON_INT32(1), "users.name", BCON_INT32(1), "}", "name", "groups_users", "}",
+            "]");
+
+    bool retval2 = mongoc_database_write_command_with_opts(database, command, nullptr, &reply, &error);
+
+    reply_str = bson_as_json(&reply, nullptr);
+    printf("%s\n", reply_str);
+
+    bson_destroy(&reply);
+    bson_destroy(command);
+
+    throw_potential_error(error);
+
+    return retval1 && retval2;
 }
 
 bool MongoDatabase::ping() {
-    bson_t reply;
     bson_error_t error;
     bson_t *command = BCON_NEW("ping", BCON_INT32(1));
 
-    bool retval = mongoc_client_command_simple(client, "admin", command, nullptr, &reply, &error);
+    bool retval = mongoc_client_command_simple(client, "admin", command, nullptr, nullptr, &error);
 
-    bson_destroy(&reply);
     bson_destroy(command);
 
     throw_potential_error(error);
@@ -99,14 +112,12 @@ bool MongoDatabase::ping() {
 }
 
 void MongoDatabase::delete_user(const std::string &user_name) {
-    // TODO
+    remove_user_from_all_groups(user_name);
     bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
 
-    bson_t reply;
     bson_error_t error;
-    bool retval = mongoc_collection_delete_one(users_collection, selector, nullptr, &reply, &error);
+    mongoc_collection_delete_one(users_collection, selector, nullptr, nullptr, &error);
 
-    bson_destroy(&reply);
     bson_destroy(selector);
 
     throw_potential_error(error);
@@ -114,31 +125,39 @@ void MongoDatabase::delete_user(const std::string &user_name) {
 
 void MongoDatabase::delete_all_data() {
     bson_t *selector = BCON_NEW(nullptr);
-    bson_t reply;
     bson_error_t error;
 
-    mongoc_collection_delete_many(users_collection, selector, nullptr, &reply, &error);
-    bson_destroy(&reply);
+    mongoc_collection_delete_many(users_collection, selector, nullptr, nullptr, &error);
     throw_potential_error(error);
 
-    mongoc_collection_delete_many(groups_collection, selector, nullptr, &reply, &error);
-    bson_destroy(&reply);
+    mongoc_collection_delete_many(groups_collection, selector, nullptr, nullptr, &error);
     throw_potential_error(error);
 
     bson_destroy(selector);
 }
 
 void MongoDatabase::add_user_to_group(const std::string &group_name, const std::string &user_name) {
-    // TODO
-    bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
-    bson_t *update = BCON_NEW("$addToSet", "{", "groups",
-                              BCON_UTF8(group_name.c_str()), "}");
+    const bson_t *user_document = retrieve_user_document(user_name);
+    bson_iter_t iter;
+    const uint8_t *user_key;
+    uint32_t user_key_length;
+    bson_subtype_t user_key_subtype;
+    if (bson_iter_init_find(&iter, user_document, "key")) {
+        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
+    } else {
+        throw (uint32_t) 42u;
+    }
+    bson_destroy(const_cast<bson_t *>(user_document));
 
-    bson_t reply;
+    bson_t *selector = BCON_NEW("name", BCON_UTF8(group_name.c_str()));
+    bson_t *update = BCON_NEW("$addToSet", "{", "users",
+                              "{", "name", BCON_UTF8(user_name.c_str()),
+                              "key", BCON_BIN(user_key_subtype, user_key, user_key_length),
+                              "}", "}");
+
     bson_error_t error;
-    bool retval = mongoc_collection_update_one(users_collection, selector, update, nullptr, &reply, &error);
+    mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
 
-    bson_destroy(&reply);
     bson_destroy(selector);
     bson_destroy(update);
 
@@ -146,29 +165,38 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 }
 
 void MongoDatabase::remove_user_from_group(const std::string &group_name, const std::string &user_name) {
-    // TODO
-    bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
-    bson_t *update = BCON_NEW("$pull", "{", "groups", BCON_UTF8(group_name.c_str()), "}");
+    bson_t *selector = BCON_NEW("name", BCON_UTF8(group_name.c_str()));
+    bson_t *update = BCON_NEW("$pull", "{", "users", "{", "name", BCON_UTF8(user_name.c_str()), "}", "}");
 
-    bson_t reply;
     bson_error_t error;
-    bool retval = mongoc_collection_update_one(users_collection, selector, update, nullptr, &reply, &error);
+    mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
 
-    bson_destroy(&reply);
     bson_destroy(selector);
     bson_destroy(update);
 
     throw_potential_error(error);
 }
 
-bool MongoDatabase::is_user_part_of_group(const std::string &user_name, const std::string &group_name) {
-    // TODO
-    bson_t *query = BCON_NEW("name", BCON_UTF8(user_name.c_str()), "groups", BCON_UTF8(group_name.c_str()));
+void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
+    bson_t *selector = BCON_NEW(nullptr);
+    bson_t *update = BCON_NEW("$pull", "{", "users", "{", "name", BCON_UTF8(user_name.c_str()), "}", "}");
+
+    bson_error_t error;
+    mongoc_collection_update_many(groups_collection, selector, update, nullptr, nullptr, &error);
+
+    bson_destroy(selector);
+    bson_destroy(update);
+
+    throw_potential_error(error);
+}
+
+bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const std::string &user_name) {
+    bson_t *query = BCON_NEW("name", BCON_UTF8(group_name.c_str()), "users.name", BCON_UTF8(user_name.c_str()));
     bson_t *opts = BCON_NEW("limit", BCON_INT32(1), "projection", "{", "_id", BCON_BOOL(true), "}");
 
     mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
 
-    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, opts, read_prefs);
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, query, opts, read_prefs);
     bson_destroy(query);
     bson_destroy(opts);
     mongoc_read_prefs_destroy(read_prefs);
@@ -187,37 +215,60 @@ bool MongoDatabase::is_user_part_of_group(const std::string &user_name, const st
     return document_exists;
 }
 
-void MongoDatabase::create_group(const std::string &gname, const std::string &uid) {
-    // TODO
-    add_user_to_group(gname, uid);
+void MongoDatabase::create_group(const std::string &group_name, const std::string &user_name) {
+    const bson_t *user_document = retrieve_user_document(user_name);
+    bson_iter_t iter;
+    const uint8_t *user_key;
+    uint32_t user_key_length;
+    bson_subtype_t user_key_subtype;
+    if (bson_iter_init_find(&iter, user_document, "key")) {
+        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
+    } else {
+        throw (uint32_t) 42u;
+    }
+    bson_destroy(const_cast<bson_t *>(user_document));
+
+    bson_t *document = BCON_NEW(
+            "name", BCON_UTF8(group_name.c_str()),
+            "users", "[",
+            "{",
+            "name", BCON_UTF8(user_name.c_str()),
+            "key", BCON_BIN(user_key_subtype, user_key, user_key_length),
+            "}",
+            "]");
+
+    bson_error_t error;
+    mongoc_collection_insert_one(groups_collection, document, nullptr, nullptr, &error);
+
+    bson_destroy(document);
+
+    throw_potential_error(error);
 }
 
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {
-    // TODO
-    bson_t *document = BCON_NEW("name", BCON_UTF8(user_name.c_str()), "key",
-                                BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) key.c_str(), KEY_SIZE),
-                                "groups", "[", "]");
+    bson_t *document = BCON_NEW("name", BCON_UTF8(user_name.c_str()),
+                                "key", BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) key.c_str(), KEY_SIZE));
 
-    bson_t reply;
     bson_error_t error;
-    bool retval = mongoc_collection_insert_one(users_collection, document, nullptr, &reply, &error);
+    mongoc_collection_insert_one(users_collection, document, nullptr, nullptr, &error);
 
-    bson_destroy(&reply);
     bson_destroy(document);
 
     throw_potential_error(error);
 }
 
 KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
-    // TODO
-    bson_t *pipeline = BCON_NEW("pipeline", "[", "{", "$match", "{", "groups",
-                                BCON_UTF8(group_name.c_str()), "}", "}", "{",
-                                "$project", "{", "key", BCON_BOOL(true), "_id",
-                                BCON_BOOL(false), "}", "}", "]");
+    bson_t *pipeline = BCON_NEW(
+            "pipeline", "[",
+            "{", "$match", "{", "name", BCON_UTF8(group_name.c_str()), "}", "}",
+            "{", "$unwind", "{", "path", "$users", "}", "}",
+            "{", "$replaceRoot", "{", "newRoot", "$users", "}", "}",
+            "{", "$project", "{", "key", BCON_BOOL(true), "_id", BCON_BOOL(false), "}", "}",
+            "]");
 
     mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_SECONDARY_PREFERRED);
 
-    mongoc_cursor_t *cursor = mongoc_collection_aggregate(users_collection, MONGOC_QUERY_NONE, pipeline, nullptr,
+    mongoc_cursor_t *cursor = mongoc_collection_aggregate(groups_collection, MONGOC_QUERY_NONE, pipeline, nullptr,
                                                           read_prefs);
 
     bson_destroy(pipeline);
@@ -229,7 +280,7 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
         throw error.code;
     }
 
-    bson_subtype_t subtype = BSON_SUBTYPE_BINARY;
+    bson_subtype_t subtype;
     const bson_t *key_document;
     uint32_t key_length;
     const uint8_t *key_binary;
@@ -248,4 +299,31 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
 
     mongoc_cursor_destroy(cursor);
     return list;
+}
+
+const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name) {
+    bson_t *query = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
+
+    mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
+
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(users_collection, query, nullptr, read_prefs);
+    bson_destroy(query);
+    mongoc_read_prefs_destroy(read_prefs);
+
+    const bson_t *document;
+    bool document_exists = mongoc_cursor_next(cursor, &document);
+    if (!document_exists) {
+        printf("No such document");
+        throw 42u;
+    }
+
+    bson_error_t error;
+    if (mongoc_cursor_error(cursor, &error)) {
+        mongoc_cursor_destroy(cursor);
+        throw error.code;
+    }
+
+    mongoc_cursor_destroy(cursor);
+
+    return document;
 }
