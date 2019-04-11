@@ -1,4 +1,6 @@
 sample
+.idea
+compile_commands.json
 
 #generated proxy
 *_u.c
