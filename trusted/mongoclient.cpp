@@ -16,12 +16,13 @@
 int ecall_mongoclient_sample() {
     printf("IN MONGOCLIENT\n");
 
-    MongoDatabase database(false);
+    auto mongo_url = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+    MongoDatabase database(mongo_url, false);
 
     // printf("PING %s\n", database.ping() ? "success" : "fail");
 
     printf("Init collection");
-    database.init("mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true");
+    database.init_collections();
 
     printf("Generating key\n");
     uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2'};

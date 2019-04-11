@@ -15,13 +15,11 @@
 
 class MongoDatabase : public Database {
 public:
-    explicit MongoDatabase(bool enable_tracing = false);
+    explicit MongoDatabase(const std::string& connection_url, bool enable_tracing = false);
 
     virtual ~MongoDatabase();
 
-    void mongo_bootstrap();
-
-    bool init(const std::string &mongo);
+    bool init_collections();
 
     bool ping();
 
@@ -44,9 +42,10 @@ public:
 private:
     mongoc_client_t *client;
     mongoc_collection_t *users_collection;
-    std::string connection_url;
-    const char *DB_NAME = "test";
+    mongoc_collection_t *groups_collection;
+    const char *DB_NAME = "newtest";
     const char *USERS_COLLECTION_NAME = "users";
+    const char *GROUPS_COLLECTION_NAME = "groups";
 
     inline void throw_potential_error(bson_error_t &error) {
         uint32_t error_code = error.code;
