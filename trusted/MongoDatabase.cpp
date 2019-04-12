@@ -9,6 +9,10 @@
 
 #include "ssl_wrappers.h"
 
+#include <sgx_tcrypto.h>
+#include <sgx_cryptoall.h>
+#include <array>
+
 MongoDatabase::MongoDatabase(const std::string &connection_url, bool enable_tracing) {
     // Required to initialize libmongoc's internals
     mongoc_init();
@@ -113,7 +117,10 @@ bool MongoDatabase::ping() {
 
 void MongoDatabase::delete_user(const std::string &user_name) {
     remove_user_from_all_groups(user_name);
-    bson_t *selector = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
+
+    auto hashed_user_name = hash_name(user_name);
+    bson_t *selector = BCON_NEW("name",
+                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
 
     bson_error_t error;
     mongoc_collection_delete_one(users_collection, selector, nullptr, nullptr, &error);
@@ -149,10 +156,18 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
     }
     bson_destroy(const_cast<bson_t *>(user_document));
 
-    bson_t *selector = BCON_NEW("name", BCON_UTF8(group_name.c_str()));
-    bson_t *update = BCON_NEW("$addToSet", "{", "users",
-                              "{", "name", BCON_UTF8(user_name.c_str()),
-                              "key", BCON_BIN(user_key_subtype, user_key, user_key_length),
+    // Re-encrypt the user's key
+    auto user_key_reencrypted = encrypt_data(decrypt_data(std::string((const char *) user_key, user_key_length)));
+    auto hashed_group_name = hash_name(group_name);
+    auto hashed_user_name = hash_name(user_name, &group_name);
+
+    bson_t *selector = BCON_NEW("name",
+                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()));
+    bson_t *update = BCON_NEW("$addToSet", "{", "users", "{",
+                              "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                              "key", BCON_BIN(BSON_SUBTYPE_BINARY,
+                                              (const uint8_t *) user_key_reencrypted.data(),
+                                              user_key_reencrypted.size()),
                               "}", "}");
 
     bson_error_t error;
@@ -165,8 +180,14 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 }
 
 void MongoDatabase::remove_user_from_group(const std::string &group_name, const std::string &user_name) {
-    bson_t *selector = BCON_NEW("name", BCON_UTF8(group_name.c_str()));
-    bson_t *update = BCON_NEW("$pull", "{", "users", "{", "name", BCON_UTF8(user_name.c_str()), "}", "}");
+    auto hashed_group_name = hash_name(group_name);
+    auto hashed_user_name = hash_name(user_name, &group_name);
+
+    bson_t *selector = BCON_NEW("name",
+                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()));
+    bson_t *update = BCON_NEW("$pull", "{", "users", "{",
+                              "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                              "}", "}");
 
     bson_error_t error;
     mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
@@ -178,6 +199,8 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
 }
 
 void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
+    // TODO Iterate over all group names to compute each hash to remove
+
     bson_t *selector = BCON_NEW(nullptr);
     bson_t *update = BCON_NEW("$pull", "{", "users", "{", "name", BCON_UTF8(user_name.c_str()), "}", "}");
 
@@ -191,7 +214,12 @@ void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
 }
 
 bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const std::string &user_name) {
-    bson_t *query = BCON_NEW("name", BCON_UTF8(group_name.c_str()), "users.name", BCON_UTF8(user_name.c_str()));
+    auto hashed_group_name = hash_name(group_name);
+    auto hashed_user_name = hash_name(user_name, &group_name);
+
+    bson_t *query = BCON_NEW("name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+                             "users.name",
+                             BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
     bson_t *opts = BCON_NEW("limit", BCON_INT32(1), "projection", "{", "_id", BCON_BOOL(true), "}");
 
     mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
@@ -216,26 +244,11 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
 }
 
 void MongoDatabase::create_group(const std::string &group_name, const std::string &user_name) {
-    const bson_t *user_document = retrieve_user_document(user_name);
-    bson_iter_t iter;
-    const uint8_t *user_key;
-    uint32_t user_key_length;
-    bson_subtype_t user_key_subtype;
-    if (bson_iter_init_find(&iter, user_document, "key")) {
-        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
-    } else {
-        throw (uint32_t) 42u;
-    }
-    bson_destroy(const_cast<bson_t *>(user_document));
+    auto hashed_group_name = hash_name(group_name);
 
     bson_t *document = BCON_NEW(
-            "name", BCON_UTF8(group_name.c_str()),
-            "users", "[",
-            "{",
-            "name", BCON_UTF8(user_name.c_str()),
-            "key", BCON_BIN(user_key_subtype, user_key, user_key_length),
-            "}",
-            "]");
+            "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+            "users", "[", "]");
 
     bson_error_t error;
     mongoc_collection_insert_one(groups_collection, document, nullptr, nullptr, &error);
@@ -243,11 +256,17 @@ void MongoDatabase::create_group(const std::string &group_name, const std::strin
     bson_destroy(document);
 
     throw_potential_error(error);
+
+    add_user_to_group(group_name, user_name);
 }
 
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {
-    bson_t *document = BCON_NEW("name", BCON_UTF8(user_name.c_str()),
-                                "key", BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) key.c_str(), KEY_SIZE));
+    auto hashed_user_name = hash_name(user_name);
+    auto encrypted_key = encrypt_data(key);
+
+    bson_t *document = BCON_NEW(
+            "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+            "key", BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) encrypted_key.data(), encrypted_key.size()));
 
     bson_error_t error;
     mongoc_collection_insert_one(users_collection, document, nullptr, nullptr, &error);
@@ -258,9 +277,13 @@ void MongoDatabase::create_user(const std::string &user_name, const std::string 
 }
 
 KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
+    auto hashed_group_name = hash_name(group_name);
+
     bson_t *pipeline = BCON_NEW(
             "pipeline", "[",
-            "{", "$match", "{", "name", BCON_UTF8(group_name.c_str()), "}", "}",
+            "{", "$match", "{",
+            "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+            "}", "}",
             "{", "$unwind", "{", "path", "$users", "}", "}",
             "{", "$replaceRoot", "{", "newRoot", "$users", "}", "}",
             "{", "$project", "{", "key", BCON_BOOL(true), "_id", BCON_BOOL(false), "}", "}",
@@ -291,8 +314,14 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
         bson_iter_init_find(&iter, key_document, "key");
 
         bson_iter_binary(&iter, &subtype, &key_length, &key_binary);
+        auto decrypted_key = decrypt_data(std::string((const char *) key_binary, key_length));
         std::array<uint8_t, KEY_SIZE> key_array_std{};
-        memcpy(key_array_std.data(), key_binary, KEY_SIZE);
+
+        if (decrypted_key.size() != KEY_SIZE) {
+            throw 555u;
+        }
+
+        memcpy(key_array_std.data(), decrypted_key.data(), decrypted_key.size());
 
         list.push_back(key_array_std);
     }
@@ -302,7 +331,9 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
 }
 
 const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name) {
-    bson_t *query = BCON_NEW("name", BCON_UTF8(user_name.c_str()));
+    auto hashed_user_name = hash_name(user_name);
+
+    bson_t *query = BCON_NEW("name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
 
     mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
 
@@ -326,4 +357,41 @@ const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name
     mongoc_cursor_destroy(cursor);
 
     return document;
+}
+
+const hashed_t MongoDatabase::hash_user(const hashed_t &hashed_name, const std::string &encrypted_key) {
+    sgx_hmac_state_handle_t context;
+    sgx_hmac256_init(hmac_key, HMAC_KEY_LENGTH, &context);
+    sgx_hmac256_update((const uint8_t *) hashed_name.data(), hashed_name.size(), context);
+    sgx_hmac256_update((const uint8_t *) encrypted_key.data(), encrypted_key.size(), context);
+    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
+    sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
+    sgx_hmac256_close(context);
+    return result;
+}
+
+const hashed_t MongoDatabase::hash_name(const std::string &name, const std::string *optional_salt) {
+    sgx_hmac_state_handle_t context;
+    sgx_hmac256_init(hmac_key, HMAC_KEY_LENGTH, &context);
+    sgx_hmac256_update((const uint8_t *) name.data(), name.size(), context);
+    if (optional_salt != nullptr) {
+        sgx_hmac256_update((const uint8_t *) optional_salt->data(), optional_salt->length(), context);
+    }
+    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
+    sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
+    sgx_hmac256_close(context);
+    return result;
+}
+
+const std::string MongoDatabase::encrypt_data(const std::string &data) {
+    return Crypto::encrypt_aesgcm(aes_key, data);
+}
+
+const std::string MongoDatabase::decrypt_data(const std::string &data) {
+    auto result = Crypto::decrypt_aesgcm(aes_key, data);
+    if (result.first) {
+        return result.second;
+    } else {
+        throw 44u;
+    }
 }

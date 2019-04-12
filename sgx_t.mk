@@ -30,10 +30,10 @@ endif
 endif
 
 ifeq ($(SGX_DEBUG), 1)
-        SGX_COMMON_CFLAGS += -O0 -g
+        SGX_COMMON_CFLAGS += -O0 -g -D ENCLAVED
         LIB_MONGOC := trusted/lib/libmongoc-static-1.0-debug.a trusted/lib/libbson-static-1.0-debug.a
 else
-        SGX_COMMON_CFLAGS += -O2
+        SGX_COMMON_CFLAGS += -O2 -D ENCLAVED
         LIB_MONGOC := trusted/lib/libmongoc-static-1.0.a trusted/lib/libbson-static-1.0.a
 endif
 
@@ -113,6 +113,10 @@ libc_mock_%.o: $(SGX_COMMONDIR)/libc_mock/%.c
 	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
+sgx_cryptoall.o: $(SGX_COMMONDIR)/sgx_cryptoall.cpp
+	$(CXX) $(Mongoclient_Cpp_Flags) -c $< -o $@
+	@echo "CXX  <=  $<"
+
 trusted/mongoclient_t.c: $(SGX_EDGER8R) ./trusted/mongoclient.edl
 	cd ./trusted && $(SGX_EDGER8R) --trusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
@@ -129,7 +133,7 @@ trusted/%.o: trusted/%.c
 	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
-mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects) libc_mock_file_mock.o libc_mock_libc_proxy.o
+mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects) libc_mock_file_mock.o libc_mock_libc_proxy.o sgx_cryptoall.o
 	$(CXX) $^ -o $@ $(Mongoclient_Link_Flags)
 	@echo "LINK =>  $@"
 

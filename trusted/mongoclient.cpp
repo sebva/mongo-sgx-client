@@ -21,6 +21,9 @@ int ecall_mongoclient_sample() {
 
     printf("PING %s\n", database.ping() ? "success" : "fail");
 
+    printf("Deleting everything\n");
+    database.delete_all_data();
+
     printf("Init collection");
     bool success = database.init_collections();
     if (!success) {
@@ -28,12 +31,13 @@ int ecall_mongoclient_sample() {
     }
 
     printf("Generating key\n");
-    uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2', '\0'};
+    const char key_raw[KEY_SIZE] = {'h', 'u', 'n', 't', 'e', 'r', '2', '\0'};
+    std::string key(key_raw, KEY_SIZE);
 
     try {
         printf("Creating user toto\n");
-        database.create_user("toto", (const char *) key);
-        database.create_user("toto2", (const char *) key);
+        database.create_user("toto", key);
+        database.create_user("toto2", key);
     } catch (uint32_t error_code) {
         printf("ERROR: exception thrown when adding toto. Did a previous run fail?. Error %ld\n.", error_code);
     }
@@ -52,7 +56,7 @@ int ecall_mongoclient_sample() {
 
     try {
         printf("Creating user toto again\n");
-        database.create_user("toto", (const char *) key);
+        database.create_user("toto", key);
     } catch (uint32_t error_code) {
         printf("OK, exception thrown when adding toto again. Error %ld\n", error_code);
     }
@@ -76,7 +80,6 @@ int ecall_mongoclient_sample() {
     database.delete_user("toto");
     printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
 
-    printf("Deleting everything\n");
-    database.delete_all_data();
+
     return 0;
 }
