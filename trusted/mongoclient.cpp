@@ -35,30 +35,34 @@ int ecall_mongoclient_sample() {
     std::string key(key_raw, KEY_SIZE);
 
     try {
-        printf("Creating user toto\n");
-        database.create_user("toto", key);
-        database.create_user("toto2", key);
+        printf("Creating user1\n");
+        database.create_user("user1", key);
+        printf("Creating user2\n");
+        database.create_user("user2", key);
     } catch (uint32_t error_code) {
-        printf("ERROR: exception thrown when adding toto. Did a previous run fail?. Error %ld\n.", error_code);
+        printf("ERROR: exception thrown when adding users. Did a previous run fail?. Error %ld\n.", error_code);
     }
 
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
-    printf("Creating group1 with toto as member\n");
-    database.create_group("group1", "toto");
+    printf("Creating group1 with user1 as member\n");
+    database.create_group("group1", "user1");
+    printf("Creating group2 with user1 and user2 as members\n");
+    database.create_group("group2", "user2");
+    database.add_user_to_group("group2", "user1");
 
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
-    printf("Adding toto to group1 again\n");
-    database.add_user_to_group("group1", "toto");
+    printf("Adding user1 to group1 again\n");
+    database.add_user_to_group("group1", "user1");
 
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
     try {
-        printf("Creating user toto again\n");
-        database.create_user("toto", key);
+        printf("Creating user user1 again\n");
+        database.create_user("user1", key);
     } catch (uint32_t error_code) {
-        printf("OK, exception thrown when adding toto again. Error %ld\n", error_code);
+        printf("OK, exception thrown when adding user1 again. Error %ld\n", error_code);
     }
 
     printf("All keys of group1\n");
@@ -68,17 +72,22 @@ int ecall_mongoclient_sample() {
         printf("Key no %d: %s\n", i, (*it).data());
     }
 
-    printf("Removing toto from group1\n");
-    database.remove_user_from_group("group1", "toto");
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Removing user1 from group2\n");
+    database.remove_user_from_group("group2", "user1");
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
 
-    printf("Adding toto to group1 again\n");
-    database.add_user_to_group("group1", "toto");
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Adding user1 to group2 again\n");
+    database.add_user_to_group("group2", "user1");
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
 
-    printf("Deleting toto\n");
-    database.delete_user("toto");
-    printf("Is toto part of group1: %d\n", database.is_user_part_of_group("group1", "toto"));
+    printf("Deleting user1\n");
+    database.delete_user("user1");
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
+    printf("Is user2 part of group1: %d\n", database.is_user_part_of_group("group1", "user2"));
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
 
 
     return 0;

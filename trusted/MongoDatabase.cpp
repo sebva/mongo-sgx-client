@@ -199,17 +199,39 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
 }
 
 void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
-    // TODO Iterate over all group names to compute each hash to remove
+    bson_t *null_selector = BCON_NEW(nullptr);
+    mongoc_read_prefs_t *read_prefs = mongoc_read_prefs_new(MONGOC_READ_PRIMARY_PREFERRED);
 
-    bson_t *selector = BCON_NEW(nullptr);
-    bson_t *update = BCON_NEW("$pull", "{", "users", "{", "name", BCON_UTF8(user_name.c_str()), "}", "}");
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, null_selector, nullptr, read_prefs);
+    mongoc_read_prefs_destroy(read_prefs);
+    bson_destroy(null_selector);
+
+    mongoc_bulk_operation_t *bulk_operation = mongoc_collection_create_bulk_operation_with_opts(groups_collection,
+                                                                                                nullptr);
+    const bson_t *group_document;
+    while (mongoc_cursor_next(cursor, &group_document)) {
+        bson_iter_t iter;
+        uint32_t encrypted_group_length;
+        const uint8_t *encrypted_group_name;
+
+        bson_iter_init_find(&iter, group_document, "encname");
+        bson_iter_binary(&iter, nullptr, &encrypted_group_length, &encrypted_group_name);
+        auto group_name = decrypt_data(std::string((const char *) encrypted_group_name, encrypted_group_length));
+        printf("Iterating over %s\n", group_name.c_str());
+        auto hashed_user_name = hash_name(user_name, &group_name);
+
+        bson_t *update = BCON_NEW("$pull", "{", "users", "{",
+                                  "name",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                                  "}", "}");
+
+        mongoc_bulk_operation_update_one(bulk_operation, group_document, update, false);
+
+        bson_destroy(update);
+    }
 
     bson_error_t error;
-    mongoc_collection_update_many(groups_collection, selector, update, nullptr, nullptr, &error);
-
-    bson_destroy(selector);
-    bson_destroy(update);
-
+    mongoc_bulk_operation_execute(bulk_operation, nullptr, &error);
     throw_potential_error(error);
 }
 
@@ -245,9 +267,12 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
 
 void MongoDatabase::create_group(const std::string &group_name, const std::string &user_name) {
     auto hashed_group_name = hash_name(group_name);
+    auto encrypted_group_name = encrypt_data(group_name);
 
     bson_t *document = BCON_NEW(
             "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+            "encname",
+            BCON_BIN(BSON_SUBTYPE_BINARY, (uint8_t *) encrypted_group_name.data(), encrypted_group_name.size()),
             "users", "[", "]");
 
     bson_error_t error;
@@ -355,7 +380,6 @@ const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name
     }
 
     mongoc_cursor_destroy(cursor);
-
     return document;
 }
 
