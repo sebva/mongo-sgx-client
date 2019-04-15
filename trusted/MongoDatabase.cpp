@@ -288,10 +288,13 @@ void MongoDatabase::create_group(const std::string &group_name, const std::strin
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {
     auto hashed_user_name = hash_name(user_name);
     auto encrypted_key = encrypt_data(key);
+    auto signature = compute_user_signature(hashed_user_name, encrypted_key);
 
     bson_t *document = BCON_NEW(
             "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-            "key", BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) encrypted_key.data(), encrypted_key.size()));
+            "key", BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) encrypted_key.data(), encrypted_key.size()),
+            "signature", BCON_BIN(BSON_SUBTYPE_BINARY, signature.data(), signature.size())
+    );
 
     bson_error_t error;
     mongoc_collection_insert_one(users_collection, document, nullptr, nullptr, &error);
@@ -379,19 +382,32 @@ const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name
         throw error.code;
     }
 
+    bson_iter_t iter;
+    const uint8_t *hashed_name;
+    uint32_t hashed_name_length;
+    const uint8_t *encrypted_key;
+    uint32_t encrypted_key_length;
+    const uint8_t *signature;
+    uint32_t signature_length;
+
+    bson_iter_init_find(&iter, document, "name");
+    bson_iter_binary(&iter, nullptr, &hashed_name_length, &hashed_name);
+    bson_iter_init_find(&iter, document, "key");
+    bson_iter_binary(&iter, nullptr, &encrypted_key_length, &encrypted_key);
+    bson_iter_init_find(&iter, document, "signature");
+    bson_iter_binary(&iter, nullptr, &signature_length, &signature);
+
+    hashed_t computed_signature = compute_user_signature(hashed_name, hashed_name_length,
+                                                         encrypted_key, encrypted_key_length);
+    if (computed_signature.size() != signature_length ||
+        memcmp(computed_signature.data(), signature, computed_signature.size()) != 0) {
+        printf("Invalid user signature for %s\n", user_name.c_str());
+        mongoc_cursor_destroy(cursor);
+        throw 33u;
+    }
+
     mongoc_cursor_destroy(cursor);
     return document;
-}
-
-const hashed_t MongoDatabase::hash_user(const hashed_t &hashed_name, const std::string &encrypted_key) {
-    sgx_hmac_state_handle_t context;
-    sgx_hmac256_init(hmac_key, HMAC_KEY_LENGTH, &context);
-    sgx_hmac256_update((const uint8_t *) hashed_name.data(), hashed_name.size(), context);
-    sgx_hmac256_update((const uint8_t *) encrypted_key.data(), encrypted_key.size(), context);
-    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
-    sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
-    sgx_hmac256_close(context);
-    return result;
 }
 
 const hashed_t MongoDatabase::hash_name(const std::string &name, const std::string *optional_salt) {
@@ -418,4 +434,22 @@ const std::string MongoDatabase::decrypt_data(const std::string &data) {
     } else {
         throw 44u;
     }
+}
+
+inline const hashed_t MongoDatabase::compute_user_signature(const hashed_t &hashed_user_name,
+                                                            const std::string &encrypted_user_key) {
+    return compute_hmac_2(hashed_user_name.data(), hashed_user_name.size(),
+                          (const uint8_t *) encrypted_user_key.data(), encrypted_user_key.size());
+}
+
+const hashed_t MongoDatabase::compute_hmac_2(const uint8_t *element_1, uint32_t element_1_length,
+                                             const uint8_t *element_2, uint32_t element_2_length) {
+    sgx_hmac_state_handle_t context;
+    sgx_hmac256_init(hmac_key, HMAC_KEY_LENGTH, &context);
+    sgx_hmac256_update(element_1, element_1_length, context);
+    sgx_hmac256_update(element_2, element_2_length, context);
+    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
+    sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
+    sgx_hmac256_close(context);
+    return result;
 }
