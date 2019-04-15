@@ -61,7 +61,7 @@ private:
         }
     }
 
-    const bson_t *retrieve_user_document(const std::string &user_name);
+    const std::string reencrypt_user_key(const std::string &user_name);
 
     void remove_user_from_all_groups(const std::string &user_name);
 

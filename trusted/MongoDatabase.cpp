@@ -97,6 +97,8 @@ bool MongoDatabase::init_collections() {
     bson_destroy(&reply);
     bson_destroy(command);
 
+    mongoc_database_destroy(database);
+
     throw_potential_error(error);
 
     return retval1 && retval2;
@@ -143,20 +145,8 @@ void MongoDatabase::delete_all_data() {
 }
 
 void MongoDatabase::add_user_to_group(const std::string &group_name, const std::string &user_name) {
-    const bson_t *user_document = retrieve_user_document(user_name);
-    bson_iter_t iter;
-    const uint8_t *user_key;
-    uint32_t user_key_length;
-    bson_subtype_t user_key_subtype;
-    if (bson_iter_init_find(&iter, user_document, "key")) {
-        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
-    } else {
-        throw (uint32_t) 42u;
-    }
-    bson_destroy(const_cast<bson_t *>(user_document));
+    std::string user_key_reencrypted = reencrypt_user_key(user_name);
 
-    // Re-encrypt the user's key
-    auto user_key_reencrypted = encrypt_data(decrypt_data(std::string((const char *) user_key, user_key_length)));
     auto hashed_group_name = hash_name(group_name);
     auto hashed_user_name = hash_name(user_name, &group_name);
 
@@ -210,10 +200,13 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     const bson_t *existing_document;
     mongoc_cursor_next(cursor, &existing_document);
     if (!validate_group_signature(existing_document)) {
+        mongoc_cursor_destroy(cursor);
         throw 33u;
     }
 
     hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
+
+    mongoc_cursor_destroy(cursor);
 
     bson_t *update = BCON_NEW("$pull", "{", "users", "{",
                               "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
@@ -314,22 +307,9 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
 }
 
 void MongoDatabase::create_group(const std::string &group_name, const std::string &user_name) {
-    const bson_t *user_document = retrieve_user_document(user_name);
-    bson_iter_t iter;
-    const uint8_t *user_key;
-    uint32_t user_key_length;
-    bson_subtype_t user_key_subtype;
-    if (bson_iter_init_find(&iter, user_document, "key")) {
-        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
-    } else {
-        throw (uint32_t) 42u;
-    }
-    bson_destroy(const_cast<bson_t *>(user_document));
-
+    std::string user_key_reencrypted = reencrypt_user_key(user_name);
     auto hashed_group_name = hash_name(group_name);
     auto encrypted_group_name = encrypt_data(group_name);
-    // Re-encrypt the user's key
-    auto user_key_reencrypted = encrypt_data(decrypt_data(std::string((const char *) user_key, user_key_length)));
     auto hashed_user_name = hash_name(user_name, &group_name);
 
     bson_t *document = BCON_NEW(
@@ -397,6 +377,7 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
     const bson_t *group_document;
     mongoc_cursor_next(cursor, &group_document);
     if (!validate_group_signature(group_document)) {
+        mongoc_cursor_destroy(cursor);
         throw 33u;
     }
 
@@ -431,7 +412,7 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
     return list;
 }
 
-const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name) {
+const std::string MongoDatabase::reencrypt_user_key(const std::string &user_name) {
     auto hashed_user_name = hash_name(user_name);
 
     bson_t *query = BCON_NEW("name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
@@ -479,8 +460,13 @@ const bson_t *MongoDatabase::retrieve_user_document(const std::string &user_name
         throw 33u;
     }
 
+    // Re-encrypt the user's key
+    std::string user_key_reencrypted = encrypt_data(
+            decrypt_data(std::string((const char *) encrypted_key, encrypted_key_length)));
+
     mongoc_cursor_destroy(cursor);
-    return document;
+
+    return user_key_reencrypted;
 }
 
 const hashed_t MongoDatabase::hash_name(const std::string &name, const std::string *optional_salt) {
@@ -589,5 +575,3 @@ bool MongoDatabase::validate_group_signature(const bson_t *group_document) {
     return existing_signature.size() == signature_length &&
            memcmp(existing_signature.data(), signature, signature_length) == 0;
 }
-
-
