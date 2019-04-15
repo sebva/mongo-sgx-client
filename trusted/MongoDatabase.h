@@ -81,6 +81,13 @@ private:
     auto compute_user_signature(Args &&... args) -> decltype(compute_hmac_2(std::forward<Args>(args)...)) {
         return compute_hmac_2(std::forward<Args>(args)...);
     }
+
+    hashed_t compute_group_signature(const bson_t *group_document,
+                                     const hashed_t *additional_user_name = nullptr,
+                                     const std::string *additional_user_key = nullptr,
+                                     bool additional_is_add = true);
+
+    bool validate_group_signature(const bson_t *group_document);
 };
 
 #endif /* TRUSTED_MONGODATABASE_H_ */

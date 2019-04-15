@@ -163,12 +163,25 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 
     bson_t *selector = BCON_NEW("name",
                                 BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()));
+
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
+    const bson_t *existing_document;
+    mongoc_cursor_next(cursor, &existing_document);
+    if (!validate_group_signature(existing_document)) {
+        throw 33u;
+    }
+    hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted, true);
+
     bson_t *update = BCON_NEW("$addToSet", "{", "users", "{",
                               "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
                               "key", BCON_BIN(BSON_SUBTYPE_BINARY,
                                               (const uint8_t *) user_key_reencrypted.data(),
                                               user_key_reencrypted.size()),
-                              "}", "}");
+                              "}", "}",
+                              "$set", "{",
+                              "signature", BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                              "}"
+    );
 
     bson_error_t error;
     mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
@@ -185,9 +198,23 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
 
     bson_t *selector = BCON_NEW("name",
                                 BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()));
+    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
+    const bson_t *existing_document;
+    mongoc_cursor_next(cursor, &existing_document);
+    if (!validate_group_signature(existing_document)) {
+        throw 33u;
+    }
+
+    hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
+
     bson_t *update = BCON_NEW("$pull", "{", "users", "{",
                               "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                              "}", "}");
+                              "}", "}",
+                              "$set", "{",
+                              "signature",
+                              BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                              "}"
+    );
 
     bson_error_t error;
     mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
@@ -220,10 +247,21 @@ void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
         printf("Iterating over %s\n", group_name.c_str());
         auto hashed_user_name = hash_name(user_name, &group_name);
 
+        if (!validate_group_signature(group_document)) {
+            throw 33u;
+        }
+
+        hashed_t new_signature = compute_group_signature(group_document, &hashed_user_name, nullptr, false);
+
         bson_t *update = BCON_NEW("$pull", "{", "users", "{",
                                   "name",
                                   BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                                  "}", "}");
+                                  "}", "}",
+                                  "$set", "{",
+                                  "signature",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                                  "}"
+        );
 
         mongoc_bulk_operation_update_one(bulk_operation, group_document, update, false);
 
@@ -266,14 +304,39 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
 }
 
 void MongoDatabase::create_group(const std::string &group_name, const std::string &user_name) {
+    const bson_t *user_document = retrieve_user_document(user_name);
+    bson_iter_t iter;
+    const uint8_t *user_key;
+    uint32_t user_key_length;
+    bson_subtype_t user_key_subtype;
+    if (bson_iter_init_find(&iter, user_document, "key")) {
+        bson_iter_binary(&iter, &user_key_subtype, &user_key_length, &user_key);
+    } else {
+        throw (uint32_t) 42u;
+    }
+    bson_destroy(const_cast<bson_t *>(user_document));
+
     auto hashed_group_name = hash_name(group_name);
     auto encrypted_group_name = encrypt_data(group_name);
+    // Re-encrypt the user's key
+    auto user_key_reencrypted = encrypt_data(decrypt_data(std::string((const char *) user_key, user_key_length)));
+    auto hashed_user_name = hash_name(user_name, &group_name);
 
     bson_t *document = BCON_NEW(
             "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
             "encname",
             BCON_BIN(BSON_SUBTYPE_BINARY, (uint8_t *) encrypted_group_name.data(), encrypted_group_name.size()),
-            "users", "[", "]");
+            "users", "[",
+            "{",
+            "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+            "key",
+            BCON_BIN(BSON_SUBTYPE_BINARY, (const uint8_t *) user_key_reencrypted.data(), user_key_reencrypted.size()),
+            "}",
+            "]"
+    );
+
+    auto signature = compute_group_signature(document);
+    BSON_APPEND_BINARY(document, "signature", BSON_SUBTYPE_BINARY, signature.data(), signature.size());
 
     bson_error_t error;
     mongoc_collection_insert_one(groups_collection, document, nullptr, nullptr, &error);
@@ -453,3 +516,68 @@ const hashed_t MongoDatabase::compute_hmac_2(const uint8_t *element_1, uint32_t 
     sgx_hmac256_close(context);
     return result;
 }
+
+hashed_t MongoDatabase::compute_group_signature(const bson_t *group_document, const hashed_t *additional_user_name,
+                                                const std::string *additional_user_key, bool additional_is_add) {
+    sgx_hmac_state_handle_t context;
+    sgx_hmac256_init(hmac_key, HMAC_KEY_LENGTH, &context);
+
+    const uint8_t *content;
+    uint32_t content_length;
+
+    bson_iter_t group_document_iter;
+    bson_iter_t array_iter;
+    bson_iter_t user_document_iter;
+    bson_iter_init(&group_document_iter, group_document);
+    while (bson_iter_next(&group_document_iter)) {
+        auto key = std::string(bson_iter_key(&group_document_iter));
+        if (key == "name" || key == "encname") {
+            bson_iter_binary(&group_document_iter, nullptr, &content_length, &content);
+            sgx_hmac256_update(content, content_length, context);
+        } else if (key == "users") {
+            bson_iter_recurse(&group_document_iter, &array_iter);
+            while (bson_iter_next(&array_iter)) {
+                bson_iter_recurse(&array_iter, &user_document_iter);
+                bson_iter_find(&user_document_iter, "name");
+                bson_iter_binary(&user_document_iter, nullptr, &content_length, &content);
+
+                if (!additional_is_add && additional_user_name != nullptr &&
+                    additional_user_name->size() == content_length &&
+                    memcmp(additional_user_name->data(), content, content_length) == 0) {
+                    continue;
+                }
+
+                sgx_hmac256_update(content, content_length, context);
+
+                bson_iter_find(&user_document_iter, "key");
+                bson_iter_binary(&user_document_iter, nullptr, &content_length, &content);
+                sgx_hmac256_update(content, content_length, context);
+            }
+        }
+    }
+
+    if (additional_is_add && additional_user_name != nullptr && additional_user_key != nullptr) {
+        sgx_hmac256_update(additional_user_name->data(), additional_user_name->size(), context);
+        sgx_hmac256_update((const uint8_t *) additional_user_key->data(), additional_user_key->size(), context);
+    }
+
+    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
+    sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
+    sgx_hmac256_close(context);
+    return result;
+}
+
+bool MongoDatabase::validate_group_signature(const bson_t *group_document) {
+    bson_iter_t iter;
+    const uint8_t *signature;
+    uint32_t signature_length;
+    bson_iter_init_find(&iter, group_document, "signature");
+    bson_iter_binary(&iter, nullptr, &signature_length, &signature);
+
+    auto existing_signature = compute_group_signature(group_document);
+
+    return existing_signature.size() == signature_length &&
+           memcmp(existing_signature.data(), signature, signature_length) == 0;
+}
+
+
