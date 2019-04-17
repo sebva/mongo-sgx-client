@@ -30,10 +30,10 @@ endif
 endif
 
 ifeq ($(SGX_DEBUG), 1)
-        SGX_COMMON_CFLAGS += -O0 -g
+        SGX_COMMON_CFLAGS += -O0 -g -D ENCLAVED
         LIB_MONGOC := trusted/lib/libmongoc-static-1.0-debug.a trusted/lib/libbson-static-1.0-debug.a
 else
-        SGX_COMMON_CFLAGS += -O2
+        SGX_COMMON_CFLAGS += -O2 -D ENCLAVED
         LIB_MONGOC := trusted/lib/libmongoc-static-1.0.a trusted/lib/libbson-static-1.0.a
 endif
 
@@ -49,7 +49,7 @@ Crypto_Library_Name := sgx_tcrypto
 
 Mongoclient_Cpp_Files := trusted/mongoclient.cpp trusted/MongoDatabase.cpp
 Mongoclient_C_Files := trusted/pthread.c trusted/my_wrappers.c trusted/inet_pton_ntop.c trusted/ssl_wrappers.c
-Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR) -I../enclave/ -I$(SGX_COMMONDIR)/enclave_include
+Mongoclient_Include_Paths := -IInclude -Itrusted -I./trusted/include -I./trusted/include/libmongoc-1.0 -I./trusted/include/libbson-1.0 -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/libcxx -I$(SGX_COMMONDIR)
 
 
 Flags_Just_For_C := -Wno-implicit-function-declaration -std=c11
@@ -113,6 +113,10 @@ libc_mock_%.o: $(SGX_COMMONDIR)/libc_mock/%.c
 	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
+sgx_cryptoall.o: $(SGX_COMMONDIR)/sgx_cryptoall.cpp
+	$(CXX) $(Mongoclient_Cpp_Flags) -c $< -o $@
+	@echo "CXX  <=  $<"
+
 trusted/mongoclient_t.c: $(SGX_EDGER8R) ./trusted/mongoclient.edl
 	cd ./trusted && $(SGX_EDGER8R) --trusted ../trusted/mongoclient.edl --search-path ../trusted --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
@@ -129,7 +133,7 @@ trusted/%.o: trusted/%.c
 	$(CC) $(Mongoclient_C_Flags) -c $< -o $@
 	@echo "CC  <=  $<"
 
-mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects) libc_mock_file_mock.o libc_mock_libc_proxy.o
+mongoclient.so: trusted/mongoclient_t.o $(Mongoclient_Cpp_Objects) $(Mongoclient_C_Objects) libc_mock_file_mock.o libc_mock_libc_proxy.o sgx_cryptoall.o
 	$(CXX) $^ -o $@ $(Mongoclient_Link_Flags)
 	@echo "LINK =>  $@"
 

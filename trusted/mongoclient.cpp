@@ -13,69 +13,82 @@
 #include <array>
 
 
-#define KEY_LENGTH 7
-
-
 int ecall_mongoclient_sample() {
-	printf("IN MONGOCLIENT\n");
+    printf("IN MONGOCLIENT\n");
 
-	MongoDatabase database(false);
+    auto mongo_url = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
+    MongoDatabase database(mongo_url, false);
 
-	printf("PING %s\n", database.ping() ? "success" : "fail");
+    printf("PING %s\n", database.ping() ? "success" : "fail");
 
-	printf("Init collection");
-	database.init_collection();
+    printf("Deleting everything\n");
+    database.delete_all_data();
 
-	printf("Generating key\n");
-	uint8_t key[] = {'h', 'u', 'n', 't', 'e', 'r', '2'};
+    printf("Init collection");
+    bool success = database.init_collections();
+    if (!success) {
+        printf("Error when initializing the indexes\n");
+    }
 
-	try {
-		printf("Creating user toto\n");
-		database.create_user("toto", (const char*)key);
-	} catch (uint32_t error_code) {
-		printf("ERROR: exception thrown when adding toto. Did a previous "
-				"run fail?. Error %ld\n.",
-				error_code);
-	}
+    printf("Generating key\n");
+    const char key_raw[KEY_SIZE] = {'h', 'u', 'n', 't', 'e', 'r', '2', '\0'};
+    std::string key(key_raw, KEY_SIZE);
 
-	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
+    try {
+        printf("Creating user1\n");
+        database.create_user("user1", key);
+        printf("Creating user2\n");
+        database.create_user("user2", key);
+    } catch (uint32_t error_code) {
+        printf("ERROR: exception thrown when adding users. Did a previous run fail?. Error %ld\n.", error_code);
+    }
 
-	printf("Adding toto to group1\n");
-	database.add_user_to_group("toto", "group1");
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
-	printf("Adding toto to group1 again\n");
-	database.add_user_to_group("toto", "group1");
+    printf("Creating group1 with user1 as member\n");
+    database.create_group("group1", "user1");
+    printf("Creating group2 with user1 and user2 as members\n");
+    database.create_group("group2", "user2");
+    database.add_user_to_group("group2", "user1");
 
-	//*
-	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
-	//*/
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
-	try {
-		printf("Creating user toto again\n");
-		database.create_user("toto", (const char*)key);
-	} catch(uint32_t error_code) {
-		printf("OK, exception thrown when adding toto again. Error %ld\n.", error_code);
-	}
+    printf("Adding user1 to group1 again\n");
+    database.add_user_to_group("group1", "user1");
 
-	//*
-	printf("All keys of group1\n");
-	KeyArray list = database.get_keys_of_group("group1");
-	int i = 1;
-	for(KeyArray::iterator it = list.begin(); it != list.end(); it++, i++) {
-		printf("Key no %d: %s\n", i, (*it).data());
-	}
-	//*/
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
 
-	//*
-	printf("Removing toto from group1\n");
-	database.remove_user_from_group("toto", "group1");
-	//*/
+    try {
+        printf("Creating user user1 again\n");
+        database.create_user("user1", key);
+    } catch (uint32_t error_code) {
+        printf("OK, exception thrown when adding user1 again. Error %ld\n", error_code);
+    }
 
-	printf("Is toto part of group1: %d\n", database.is_user_part_of_group("toto", "group1"));
+    printf("All keys of group1\n");
+    KeyArray list = database.get_keys_of_group("group1");
+    int i = 1;
+    for (auto it = list.begin(); it != list.end(); it++, i++) {
+        printf("Key no %d: %s\n", i, (*it).data());
+    }
 
-	//*
-	printf("Deleting everything\n");
-	database.delete_all_data();
-	//*/
-	return 0;
+    printf("Removing user1 from group2\n");
+    database.remove_user_from_group("group2", "user1");
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
+
+    printf("Adding user1 to group2 again\n");
+    database.add_user_to_group("group2", "user1");
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
+
+    printf("Deleting user1\n");
+    database.delete_user("user1");
+    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
+    printf("Is user2 part of group1: %d\n", database.is_user_part_of_group("group1", "user2"));
+    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
+    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
+
+
+    return 0;
 }
