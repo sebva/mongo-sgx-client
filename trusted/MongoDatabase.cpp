@@ -338,8 +338,6 @@ void MongoDatabase::create_group(const std::string &group_name, const std::strin
     bson_destroy(document);
 
     throw_potential_error(error);
-
-    add_user_to_group(group_name, user_name);
 }
 
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {
