@@ -32,7 +32,7 @@ int pthread_cond_wait(pthread_cond_t *restrict cond, pthread_mutex_t *restrict m
 }
 
 int pthread_cond_broadcast(pthread_cond_t *cond) {
-	pthread_print("cond_broadcast");
+	//pthread_print("cond_broadcast");
 }
 int pthread_cond_signal(pthread_cond_t *cond) {
 	pthread_print("cond_signal");
