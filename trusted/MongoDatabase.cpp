@@ -150,7 +150,11 @@ void MongoDatabase::delete_all_data() {
 
 void MongoDatabase::add_user_to_group(const std::string &group_name, const std::string &user_name) {
     std::string user_key_reencrypted = reencrypt_user_key(user_name);
+    add_user_to_group(group_name, user_name, user_key_reencrypted);
+}
 
+void MongoDatabase::add_user_to_group(const std::string &group_name, const std::string &user_name,
+                                      const std::string &user_key_reencrypted) {
     auto hashed_group_name = hash_name(group_name);
     auto hashed_user_name = hash_name(user_name, &group_name);
 
@@ -163,7 +167,6 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
     mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
     const bson_t *existing_document;
     if (!mongoc_cursor_next(cursor, &existing_document)) {
-        printf("Nothing to update");
         bson_destroy(selector);
         mongoc_cursor_destroy(cursor);
         return;
@@ -337,7 +340,12 @@ void MongoDatabase::create_group(const std::string &group_name, const std::strin
 
     bson_destroy(document);
 
-    throw_potential_error(error);
+    // Fall-back mechanism
+    if (error.code == MONGOC_ERROR_DUPLICATE_KEY) {
+        add_user_to_group(group_name, user_name, user_key_reencrypted);
+    } else {
+        throw_potential_error(error);
+    }
 }
 
 void MongoDatabase::create_user(const std::string &user_name, const std::string &key) {

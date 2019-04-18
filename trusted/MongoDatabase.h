@@ -63,6 +63,9 @@ private:
         }
     }
 
+    void add_user_to_group(const std::string &group_name, const std::string &user_name,
+                           const std::string &user_key_reencrypted);
+
     const std::string reencrypt_user_key(const std::string &user_name);
 
     void remove_user_from_all_groups(const std::string &user_name);
