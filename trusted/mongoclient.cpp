@@ -17,15 +17,16 @@ int ecall_mongoclient_sample() {
     printf("IN MONGOCLIENT\n");
 
     auto mongo_url = "mongodb://sgx-3.maas:27017/?ssl=true&sslAllowInvalidCertificates=true&sslAllowInvalidHostnames=true";
-    MongoDatabase database(mongo_url, false);
+    MongoDatabase database(false);
+    database.init(mongo_url);
 
-    printf("PING %s\n", database.ping() ? "success" : "fail");
+    // printf("PING %s\n", database.ping() ? "success" : "fail");
 
     printf("Deleting everything\n");
     database.delete_all_data();
 
-    printf("Init collection");
-    bool success = database.init_collections();
+    printf("Init collection\n");
+    bool success = database.init_indexes();
     if (!success) {
         printf("Error when initializing the indexes\n");
     }

@@ -13,27 +13,29 @@
 #include <sgx_cryptoall.h>
 #include <array>
 
-MongoDatabase::MongoDatabase(const std::string &connection_url, bool enable_tracing) {
+MongoDatabase::MongoDatabase(bool enable_tracing) {
     // Required to initialize libmongoc's internals
     mongoc_init();
 
     if (!enable_tracing) {
         mongoc_log_trace_disable();
     }
+}
 
+bool MongoDatabase::init(const std::string &connection_url) {
     // Safely create a MongoDB URI object from the given string
     bson_error_t error;
     mongoc_uri_t *uri = mongoc_uri_new_with_error(connection_url.c_str(), &error);
     if (!uri) {
         printf("failed to parse URI: %s\n", error.message);
-        return;
+        return false;
     }
 
     // Create a new client instance
     client = mongoc_client_new_from_uri(uri);
     if (!client) {
         printf("Client failure\n");
-        return;
+        return false;
     }
     printf("Client OK\n");
 
@@ -50,6 +52,8 @@ MongoDatabase::MongoDatabase(const std::string &connection_url, bool enable_trac
      */
     users_collection = mongoc_client_get_collection(client, DB_NAME, USERS_COLLECTION_NAME);
     groups_collection = mongoc_client_get_collection(client, DB_NAME, GROUPS_COLLECTION_NAME);
+
+    return true;
 }
 
 MongoDatabase::~MongoDatabase() {
@@ -61,7 +65,7 @@ MongoDatabase::~MongoDatabase() {
     mongoc_cleanup();
 }
 
-bool MongoDatabase::init_collections() {
+bool MongoDatabase::init_indexes() {
     bson_t reply;
     bson_error_t error;
 
