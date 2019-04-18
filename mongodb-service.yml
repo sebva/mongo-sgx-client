@@ -27,16 +27,8 @@ spec:
         role: mongo
         replicaset: rs0
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: "role"
-                    operator: In
-                    values:
-                    - mongo
-              topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        role: mongo
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
       - name: regcred
@@ -47,12 +39,7 @@ spec:
           defaultMode: 256
       containers:
       - name: mongod-container
-        image: sebvaucher/anonymbe:0.27-mongodb
-        env:
-        - name: SCONE_MODE
-          value: "HW"
-        - name: SCONE_VERSION
-          value: "1"
+        image: mongo:4.1.10
         command:
         - "mongod"
         - "--bind_ip"
@@ -71,23 +58,20 @@ spec:
         livenessProbe:
           exec:
             command:
-            - ./tlsping.sh
-            - localhost:27017
-          initialDelaySeconds: 10
-          periodSeconds: 5
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
         readinessProbe:
           exec:
             command:
-            - ./tlsping.sh
-            - localhost:27017
-          initialDelaySeconds: 4
-          periodSeconds: 3
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 5
+          periodSeconds: 10
         volumeMounts:
         - name: secrets-volume
           readOnly: true
           mountPath: /data/static
-        resources:
-          requests:
-            intel.com/sgx: 10
-          limits:
-            intel.com/sgx: 10
