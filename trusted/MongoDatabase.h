@@ -20,11 +20,11 @@ typedef std::array<unsigned char, HMAC_RESULT_LENGTH> hashed_t;
 
 class MongoDatabase : public Database {
 public:
-    explicit MongoDatabase(bool enable_tracing = false);
+    explicit MongoDatabase(const std::string &connection_url, bool enable_tracing = false);
 
     virtual ~MongoDatabase();
 
-    bool init(const std::string &connection_url);
+    bool init_collections();
 
     bool ping();
 
