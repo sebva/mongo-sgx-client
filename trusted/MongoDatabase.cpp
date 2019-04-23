@@ -84,7 +84,9 @@ bool MongoDatabase::init_indexes() {
     bson_destroy(&reply);
     bson_destroy(command);
 
-    throw_potential_error(error);
+    if (!retval1) {
+        throw_potential_error(error);
+    }
 
 
     command = BCON_NEW(
@@ -103,7 +105,9 @@ bool MongoDatabase::init_indexes() {
 
     mongoc_database_destroy(database);
 
-    throw_potential_error(error);
+    if (!retval2) {
+        throw_potential_error(error);
+    }
 
     return retval1 && retval2;
 }
@@ -116,7 +120,9 @@ bool MongoDatabase::ping() {
 
     bson_destroy(command);
 
-    throw_potential_error(error);
+    if (!retval) {
+        throw_potential_error(error);
+    }
     return retval;
 }
 
@@ -128,22 +134,28 @@ void MongoDatabase::delete_user(const std::string &user_name) {
                                 BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
 
     bson_error_t error;
-    mongoc_collection_delete_one(users_collection, selector, nullptr, nullptr, &error);
+    bool status = mongoc_collection_delete_one(users_collection, selector, nullptr, nullptr, &error);
 
     bson_destroy(selector);
 
-    throw_potential_error(error);
+    if (!status) {
+        throw_potential_error(error);
+    }
 }
 
 void MongoDatabase::delete_all_data() {
     bson_t *selector = BCON_NEW(nullptr);
     bson_error_t error;
 
-    mongoc_collection_delete_many(users_collection, selector, nullptr, nullptr, &error);
-    throw_potential_error(error);
+    bool status = mongoc_collection_delete_many(users_collection, selector, nullptr, nullptr, &error);
+    if (!status) {
+        throw_potential_error(error);
+    }
 
-    mongoc_collection_delete_many(groups_collection, selector, nullptr, nullptr, &error);
-    throw_potential_error(error);
+    status = mongoc_collection_delete_many(groups_collection, selector, nullptr, nullptr, &error);
+    if (!status) {
+        throw_potential_error(error);
+    }
 
     bson_destroy(selector);
 }
@@ -197,7 +209,6 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
             bson_destroy(selector);
             mongoc_cursor_destroy(cursor);
             mongoc_client_session_abort_transaction(session, &error);
-            throw_potential_error(error);
 
             bson_error_t signature_error{0, 1, "Error in signature validation"};
             throw signature_error;
@@ -293,12 +304,14 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     );
 
     bson_error_t error;
-    mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
+    bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
 
     bson_destroy(selector);
     bson_destroy(update);
 
-    throw_potential_error(error);
+    if (!status) {
+        throw_potential_error(error);
+    }
 }
 
 void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
@@ -346,8 +359,10 @@ void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
     }
 
     bson_error_t error;
-    mongoc_bulk_operation_execute(bulk_operation, nullptr, &error);
-    throw_potential_error(error);
+    uint32_t status = mongoc_bulk_operation_execute(bulk_operation, nullptr, &error);
+    if (status == 0) {
+        throw_potential_error(error);
+    }
 }
 
 bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const std::string &user_name) {
@@ -405,15 +420,17 @@ void MongoDatabase::create_group(const std::string &group_name, const std::strin
     BSON_APPEND_BINARY(document, "signature", BSON_SUBTYPE_BINARY, signature.data(), signature.size());
 
     bson_error_t error;
-    mongoc_collection_insert_one(groups_collection, document, nullptr, nullptr, &error);
+    bool status = mongoc_collection_insert_one(groups_collection, document, nullptr, nullptr, &error);
 
     bson_destroy(document);
 
-    // Fall-back mechanism
-    if (error.code == MONGOC_ERROR_DUPLICATE_KEY) {
-        add_user_to_group(group_name, user_name, user_key_reencrypted);
-    } else {
-        throw_potential_error(error);
+    if (!status) {
+        // Fall-back mechanism
+        if (error.code == MONGOC_ERROR_DUPLICATE_KEY) {
+            add_user_to_group(group_name, user_name, user_key_reencrypted);
+        } else {
+            throw_potential_error(error);
+        }
     }
 }
 
@@ -429,11 +446,13 @@ void MongoDatabase::create_user(const std::string &user_name, const std::string 
     );
 
     bson_error_t error;
-    mongoc_collection_insert_one(users_collection, document, nullptr, nullptr, &error);
+    bool status = mongoc_collection_insert_one(users_collection, document, nullptr, nullptr, &error);
 
     bson_destroy(document);
 
-    throw_potential_error(error);
+    if (!status) {
+        throw_potential_error(error);
+    }
 }
 
 KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
