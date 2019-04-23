@@ -41,7 +41,8 @@ int ecall_mongoclient_sample() {
         printf("Creating user2\n");
         database.create_user("user2", key);
     } catch (bson_error_t &error) {
-        printf("ERROR: exception thrown when adding users. Did a previous run fail?. Error %ld\n", error.code);
+        printf("ERROR: exception thrown when adding users. Did a previous run fail?. Error %ld: %s\n",
+               error.code, error.message);
     }
 
     printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
@@ -52,7 +53,7 @@ int ecall_mongoclient_sample() {
     try {
         database.create_group("group1", "user1");
     } catch (bson_error_t &error) {
-        printf("OK, exception thrown when creating group again. Error %ld\n", error.code);
+        printf("OK, exception thrown when creating group again. Error %ld: %s\n", error.code, error.message);
     }
 
     printf("Creating group2 with user1 and user2 as members\n");
@@ -70,7 +71,7 @@ int ecall_mongoclient_sample() {
         printf("Creating user user1 again\n");
         database.create_user("user1", key);
     } catch (bson_error_t &error) {
-        printf("OK, exception thrown when adding user1 again. Error %ld\n", error.code);
+        printf("OK, exception thrown when adding user1 again. Error %ld: %s\n", error.code, error.message);
     }
 
     printf("All keys of group1\n");

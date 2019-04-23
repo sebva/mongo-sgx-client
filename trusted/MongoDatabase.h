@@ -16,6 +16,11 @@
 #define HMAC_KEY_LENGTH 64
 #define HMAC_RESULT_LENGTH 32
 
+#define S(x) #x
+#define S_(x) S(x)
+#define S__LINE__ S_(__LINE__)
+#define BSON_ERROR(message) bson_error_t{0, 1, message "; line: " S__LINE__}
+
 typedef std::array<unsigned char, HMAC_RESULT_LENGTH> hashed_t;
 
 class MongoDatabase : public Database {

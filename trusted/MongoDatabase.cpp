@@ -173,7 +173,7 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 
     bool done = false;
     int attempts = 10;
-    while (!done && (attempts --> 0)) {
+    while (!done && (attempts-- > 0)) {
         bson_t *selector = BCON_NEW("name",
                                     BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
                                     "users.name", "{", "$ne",
@@ -191,8 +191,7 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
         if (!validate_group_signature(existing_document)) {
             bson_destroy(selector);
             mongoc_cursor_destroy(cursor);
-            bson_error_t signature_error{0, 1, "Error in signature validation"};
-            throw signature_error;
+            throw BSON_ERROR("Error in signature validation at line");
         }
 
 
@@ -253,8 +252,7 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     mongoc_cursor_next(cursor, &existing_document);
     if (!validate_group_signature(existing_document)) {
         mongoc_cursor_destroy(cursor);
-        bson_error_t signature_error{0, 1, "Error in signature validation"};
-        throw signature_error;
+        throw BSON_ERROR("Error in signature validation");
     }
 
     hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
@@ -304,8 +302,7 @@ void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
         auto hashed_user_name = hash_name(user_name, &group_name);
 
         if (!validate_group_signature(group_document)) {
-            bson_error_t signature_error{0, 1, "Error in signature validation"};
-            throw signature_error;
+            throw BSON_ERROR("Error in signature validation");
         }
 
         hashed_t new_signature = compute_group_signature(group_document, &hashed_user_name, nullptr, false);
@@ -356,7 +353,7 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error;
+        throw_potential_error(error);
     }
 
     mongoc_cursor_destroy(cursor);
@@ -436,15 +433,14 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error;
+        throw_potential_error(error);
     }
 
     const bson_t *group_document;
     mongoc_cursor_next(cursor, &group_document);
     if (!validate_group_signature(group_document)) {
         mongoc_cursor_destroy(cursor);
-        bson_error_t signature_error{0, 1, "Error in signature validation"};
-        throw signature_error;
+        throw BSON_ERROR("Error in signature validation");
     }
 
     uint32_t key_length;
@@ -466,8 +462,7 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
         std::array<uint8_t, KEY_SIZE> key_array_std{};
 
         if (decrypted_key.size() != KEY_SIZE) {
-            bson_error_t key_size_error{0, 1, "Key size is wrong"};
-            throw key_size_error;
+            throw BSON_ERROR("Key size is wrong");
         }
 
         memcpy(key_array_std.data(), decrypted_key.data(), decrypted_key.size());
@@ -493,15 +488,13 @@ const std::string MongoDatabase::reencrypt_user_key(const std::string &user_name
     const bson_t *document;
     bool document_exists = mongoc_cursor_next(cursor, &document);
     if (!document_exists) {
-        printf("No such document");
-        bson_error_t user_error{0, 1, "User does not exist"};
-        throw user_error;
+        throw BSON_ERROR("User does not exist");
     }
 
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error;
+        throw_potential_error(error);
     }
 
     bson_iter_t iter;
@@ -525,8 +518,7 @@ const std::string MongoDatabase::reencrypt_user_key(const std::string &user_name
         memcmp(computed_signature.data(), signature, computed_signature.size()) != 0) {
         printf("Invalid user signature for %s\n", user_name.c_str());
         mongoc_cursor_destroy(cursor);
-        bson_error_t signature_error{0, 1, "Error in signature validation"};
-        throw signature_error;
+        throw BSON_ERROR("Error in signature validation");
     }
 
     // Re-encrypt the user's key
@@ -560,8 +552,7 @@ const std::string MongoDatabase::decrypt_data(const std::string &data) {
     if (result.first) {
         return result.second;
     } else {
-        bson_error_t decryption_error{0, 1, "Error decrypting data"};
-        throw decryption_error;
+        throw BSON_ERROR("Error decrypting data");
     }
 }
 
