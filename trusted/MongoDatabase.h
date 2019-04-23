@@ -59,7 +59,7 @@ private:
     inline void throw_potential_error(bson_error_t &error) {
         uint32_t error_code = error.code;
         if (error_code != 0) {
-            throw error_code;
+            throw error;
         }
     }
 
