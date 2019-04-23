@@ -155,6 +155,8 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 
 void MongoDatabase::add_user_to_group(const std::string &group_name, const std::string &user_name,
                                       const std::string &user_key_reencrypted) {
+    bson_error_t error;
+
     auto hashed_group_name = hash_name(group_name);
     auto hashed_user_name = hash_name(user_name, &group_name);
 
@@ -164,37 +166,99 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
                                 BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
                                 "}");
 
-    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
-    const bson_t *existing_document;
-    if (!mongoc_cursor_next(cursor, &existing_document)) {
-        bson_destroy(selector);
+
+    mongoc_client_session_t *session = mongoc_client_start_session(client, nullptr, &error);
+    if (!session) {
+        throw_potential_error(error);
+    }
+
+    bool transaction_done = false;
+    int attempts_left = 10;
+
+    while (!transaction_done && (attempts_left-- > 0)) {
+
+        bool status = mongoc_client_session_start_transaction(session, nullptr, &error);
+        if (!status) {
+            throw_potential_error(error);
+        }
+
+
+        mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
+        const bson_t *existing_document;
+        if (!mongoc_cursor_next(cursor, &existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            mongoc_client_session_abort_transaction(session, &error);
+            throw_potential_error(error);
+            return;
+        }
+        if (!validate_group_signature(existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            mongoc_client_session_abort_transaction(session, &error);
+            throw_potential_error(error);
+            throw 33u;
+        }
+        hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted,
+                                                         true);
+
+        bson_t *update = BCON_NEW("$push", "{", "users", "{",
+                                  "name",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                                  "key", BCON_BIN(BSON_SUBTYPE_BINARY,
+                                                  (const uint8_t *) user_key_reencrypted.data(),
+                                                  user_key_reencrypted.size()),
+                                  "}", "}",
+                                  "$set", "{",
+                                  "signature",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                                  "}"
+        );
+
+        status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
+        bson_destroy(update);
         mongoc_cursor_destroy(cursor);
-        return;
+
+        if (!status) {
+            MONGOC_ERROR ("Insert failed: %s", error.message);
+            mongoc_client_session_abort_transaction(session, nullptr);
+
+            continue;
+        }
+
+        bson_t reply = BSON_INITIALIZER;
+
+        // in case of transient errors, retry 10 times
+        for (int i = 0; i < 10; i++) {
+            bson_destroy(&reply);
+            status = mongoc_client_session_commit_transaction(session, &reply, &error);
+            if (status) {
+                transaction_done = true;
+                break;
+            } else {
+                MONGOC_ERROR ("Warning: commit failed: %s", error.message);
+                if (mongoc_error_has_label(&reply, "TransientTransactionError")) {
+                    mongoc_client_session_abort_transaction(session, nullptr);
+                    transaction_done = false;
+                    break;
+                } else if (mongoc_error_has_label(&reply, "UnknownTransactionCommitResult")) {
+                    /* try again to commit */
+                    continue;
+                }
+
+                /* unrecoverable error trying to commit */
+                break;
+            }
+        }
+        bson_destroy(&reply);
     }
-    if (!validate_group_signature(existing_document)) {
-        throw 33u;
-    }
-    hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted, true);
 
-    bson_t *update = BCON_NEW("$push", "{", "users", "{",
-                              "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                              "key", BCON_BIN(BSON_SUBTYPE_BINARY,
-                                              (const uint8_t *) user_key_reencrypted.data(),
-                                              user_key_reencrypted.size()),
-                              "}", "}",
-                              "$set", "{",
-                              "signature", BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
-                              "}"
-    );
-
-    bson_error_t error;
-    mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
-
-    mongoc_cursor_destroy(cursor);
     bson_destroy(selector);
-    bson_destroy(update);
+    mongoc_client_session_destroy(session);
 
-    throw_potential_error(error);
+    if (!transaction_done) {
+        throw 484u;
+    }
 }
 
 void MongoDatabase::remove_user_from_group(const std::string &group_name, const std::string &user_name) {
