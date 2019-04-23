@@ -170,46 +170,75 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
     auto hashed_group_name = hash_name(group_name);
     auto hashed_user_name = hash_name(user_name, &group_name);
 
-    bson_t *selector = BCON_NEW("name",
-                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
-                                "users.name", "{", "$ne",
-                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                                "}");
 
-    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
-    const bson_t *existing_document;
-    if (!mongoc_cursor_next(cursor, &existing_document)) {
-        bson_destroy(selector);
+    bool done = false;
+    int attempts = 10;
+    while (!done && (attempts --> 0)) {
+        bson_t *selector = BCON_NEW("name",
+                                    BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+                                    "users.name", "{", "$ne",
+                                    BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                                    "}");
+
+        mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
+        const bson_t *existing_document;
+        if (!mongoc_cursor_next(cursor, &existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            // User is already in group; nothing to do
+            return;
+        }
+        if (!validate_group_signature(existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            bson_error_t signature_error{0, 1, "Error in signature validation"};
+            throw signature_error;
+        }
+
+
+        // Add old signature to selector to guarantee consistency.
+        {
+            bson_iter_t iter;
+            const uint8_t *signature;
+            uint32_t signature_length;
+            bson_iter_init_find(&iter, existing_document, "signature");
+            bson_iter_binary(&iter, nullptr, &signature_length, &signature);
+            BSON_APPEND_BINARY(selector, "signature", BSON_SUBTYPE_BINARY, signature, signature_length);
+        }
+
+        hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted,
+                                                         true);
+
+        bson_t *update = BCON_NEW("$push", "{", "users", "{",
+                                  "name",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                                  "key", BCON_BIN(BSON_SUBTYPE_BINARY,
+                                                  (const uint8_t *) user_key_reencrypted.data(),
+                                                  user_key_reencrypted.size()),
+                                  "}", "}",
+                                  "$set", "{",
+                                  "signature",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                                  "}"
+        );
+
+        bson_error_t error;
+        bson_t reply;
+        bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, &reply, &error);
+
         mongoc_cursor_destroy(cursor);
-        // User is already in group; nothing to do
-        return;
-    }
-    if (!validate_group_signature(existing_document)) {
-        bson_error_t signature_error{0, 1, "Error in signature validation"};
-        throw signature_error;
-    }
-    hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted, true);
+        bson_destroy(selector);
+        bson_destroy(update);
 
-    bson_t *update = BCON_NEW("$push", "{", "users", "{",
-                              "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                              "key", BCON_BIN(BSON_SUBTYPE_BINARY,
-                                              (const uint8_t *) user_key_reencrypted.data(),
-                                              user_key_reencrypted.size()),
-                              "}", "}",
-                              "$set", "{",
-                              "signature", BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
-                              "}"
-    );
-
-    bson_error_t error;
-    bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
-
-    mongoc_cursor_destroy(cursor);
-    bson_destroy(selector);
-    bson_destroy(update);
-
-    if (!status) {
-        throw_potential_error(error);
+        if (status) {
+            bson_iter_t iter;
+            bson_iter_init_find(&iter, &reply, "matchedCount");
+            if (bson_iter_int64(&iter) >= 1) {
+                done = true;
+            }
+        } else {
+            throw_potential_error(error);
+        }
     }
 }
 
