@@ -172,7 +172,7 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
 
 
     bool done = false;
-    int attempts = 10;
+    int attempts = 100;
     while (!done && (attempts-- > 0)) {
         bson_t *selector = BCON_NEW("name",
                                     BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
@@ -253,7 +253,7 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     auto hashed_user_name = hash_name(user_name, &group_name);
 
     bool done = false;
-    int attempts = 10;
+    int attempts = 100;
     while (!done && (attempts-- > 0)) {
         bson_t *selector = BCON_NEW("name",
                                     BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
