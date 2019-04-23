@@ -13,6 +13,8 @@
 #include <array>
 
 
+void printMemberships(MongoDatabase &database);
+
 int ecall_mongoclient_sample() {
     printf("IN MONGOCLIENT\n");
 
@@ -45,27 +47,34 @@ int ecall_mongoclient_sample() {
                error.code, error.message);
     }
 
-    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
+    printMemberships(database);
 
     printf("Creating group1 with user1 as member\n");
     database.create_group("group1", "user1");
+
+    printMemberships(database);
+
     printf("Creating group1 with user1 as member again\n");
     try {
         database.create_group("group1", "user1");
     } catch (bson_error_t &error) {
         printf("OK, exception thrown when creating group again. Error %ld: %s\n", error.code, error.message);
     }
+    printMemberships(database);
 
-    printf("Creating group2 with user1 and user2 as members\n");
+    printf("Creating group2 with user2 as member\n");
     database.create_group("group2", "user2");
+    printMemberships(database);
+
+    printf("Adding user1 to group2\n");
     database.add_user_to_group("group2", "user1");
 
-    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
+    printMemberships(database);
 
     printf("Adding user1 to group1 again\n");
     database.add_user_to_group("group1", "user1");
 
-    printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
+    printMemberships(database);
 
     try {
         printf("Creating user user1 again\n");
@@ -73,6 +82,8 @@ int ecall_mongoclient_sample() {
     } catch (bson_error_t &error) {
         printf("OK, exception thrown when adding user1 again. Error %ld: %s\n", error.code, error.message);
     }
+
+    printMemberships(database);
 
     printf("All keys of group1\n");
     KeyArray list = database.get_keys_of_group("group1");
@@ -83,21 +94,22 @@ int ecall_mongoclient_sample() {
 
     printf("Removing user1 from group2\n");
     database.remove_user_from_group("group2", "user1");
-    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
-    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
+    printMemberships(database);
 
     printf("Adding user1 to group2 again\n");
     database.add_user_to_group("group2", "user1");
-    printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
-    printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
+    printMemberships(database);
 
     printf("Deleting user1\n");
     database.delete_user("user1");
+    printMemberships(database);
+
+    return 0;
+}
+
+void printMemberships(MongoDatabase &database) {
     printf("Is user1 part of group1: %d\n", database.is_user_part_of_group("group1", "user1"));
     printf("Is user2 part of group1: %d\n", database.is_user_part_of_group("group1", "user2"));
     printf("Is user1 part of group2: %d\n", database.is_user_part_of_group("group2", "user1"));
     printf("Is user2 part of group2: %d\n", database.is_user_part_of_group("group2", "user2"));
-
-
-    return 0;
 }
