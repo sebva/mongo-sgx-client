@@ -186,18 +186,21 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
         mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
         const bson_t *existing_document;
         if (!mongoc_cursor_next(cursor, &existing_document)) {
-            bson_destroy(selector);
             mongoc_cursor_destroy(cursor);
             mongoc_client_session_abort_transaction(session, &error);
-            throw_potential_error(error);
-            return;
+
+            // User is already in group; nothing to do
+            transaction_done = true;
+            break;
         }
         if (!validate_group_signature(existing_document)) {
             bson_destroy(selector);
             mongoc_cursor_destroy(cursor);
             mongoc_client_session_abort_transaction(session, &error);
             throw_potential_error(error);
-            throw 33u;
+
+            bson_error_t signature_error{0, 1, "Error in signature validation"};
+            throw signature_error;
         }
         hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted,
                                                          true);
@@ -220,7 +223,7 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
         mongoc_cursor_destroy(cursor);
 
         if (!status) {
-            MONGOC_ERROR ("Insert failed: %s", error.message);
+            printf("Update failed: %s\n", error.message);
             mongoc_client_session_abort_transaction(session, nullptr);
 
             continue;
@@ -236,10 +239,9 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
                 transaction_done = true;
                 break;
             } else {
-                MONGOC_ERROR ("Warning: commit failed: %s", error.message);
+                printf("Warning: commit failed: %s\n", error.message);
                 if (mongoc_error_has_label(&reply, "TransientTransactionError")) {
                     mongoc_client_session_abort_transaction(session, nullptr);
-                    transaction_done = false;
                     break;
                 } else if (mongoc_error_has_label(&reply, "UnknownTransactionCommitResult")) {
                     /* try again to commit */
@@ -257,7 +259,8 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
     mongoc_client_session_destroy(session);
 
     if (!transaction_done) {
-        throw 484u;
+        bson_error_t transaction_error{0, 1, "Transaction did not finish"};
+        throw transaction_error;
     }
 }
 
@@ -272,7 +275,8 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     mongoc_cursor_next(cursor, &existing_document);
     if (!validate_group_signature(existing_document)) {
         mongoc_cursor_destroy(cursor);
-        throw 33u;
+        bson_error_t signature_error{0, 1, "Error in signature validation"};
+        throw signature_error;
     }
 
     hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
@@ -320,7 +324,8 @@ void MongoDatabase::remove_user_from_all_groups(const std::string &user_name) {
         auto hashed_user_name = hash_name(user_name, &group_name);
 
         if (!validate_group_signature(group_document)) {
-            throw 33u;
+            bson_error_t signature_error{0, 1, "Error in signature validation"};
+            throw signature_error;
         }
 
         hashed_t new_signature = compute_group_signature(group_document, &hashed_user_name, nullptr, false);
@@ -369,7 +374,7 @@ bool MongoDatabase::is_user_part_of_group(const std::string &group_name, const s
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error.code;
+        throw error;
     }
 
     mongoc_cursor_destroy(cursor);
@@ -445,14 +450,15 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error.code;
+        throw error;
     }
 
     const bson_t *group_document;
     mongoc_cursor_next(cursor, &group_document);
     if (!validate_group_signature(group_document)) {
         mongoc_cursor_destroy(cursor);
-        throw 33u;
+        bson_error_t signature_error{0, 1, "Error in signature validation"};
+        throw signature_error;
     }
 
     uint32_t key_length;
@@ -474,7 +480,8 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
         std::array<uint8_t, KEY_SIZE> key_array_std{};
 
         if (decrypted_key.size() != KEY_SIZE) {
-            throw 555u;
+            bson_error_t key_size_error{0, 1, "Key size is wrong"};
+            throw key_size_error;
         }
 
         memcpy(key_array_std.data(), decrypted_key.data(), decrypted_key.size());
@@ -501,13 +508,14 @@ const std::string MongoDatabase::reencrypt_user_key(const std::string &user_name
     bool document_exists = mongoc_cursor_next(cursor, &document);
     if (!document_exists) {
         printf("No such document");
-        throw 42u;
+        bson_error_t user_error{0, 1, "User does not exist"};
+        throw user_error;
     }
 
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
         mongoc_cursor_destroy(cursor);
-        throw error.code;
+        throw error;
     }
 
     bson_iter_t iter;
@@ -531,7 +539,8 @@ const std::string MongoDatabase::reencrypt_user_key(const std::string &user_name
         memcmp(computed_signature.data(), signature, computed_signature.size()) != 0) {
         printf("Invalid user signature for %s\n", user_name.c_str());
         mongoc_cursor_destroy(cursor);
-        throw 33u;
+        bson_error_t signature_error{0, 1, "Error in signature validation"};
+        throw signature_error;
     }
 
     // Re-encrypt the user's key
@@ -565,7 +574,8 @@ const std::string MongoDatabase::decrypt_data(const std::string &data) {
     if (result.first) {
         return result.second;
     } else {
-        throw 44u;
+        bson_error_t decryption_error{0, 1, "Error decrypting data"};
+        throw decryption_error;
     }
 }
 
