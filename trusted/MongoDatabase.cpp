@@ -208,6 +208,8 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
         hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, &user_key_reencrypted,
                                                          true);
 
+        mongoc_cursor_destroy(cursor);
+
         bson_t *update = BCON_NEW("$push", "{", "users", "{",
                                   "name",
                                   BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
@@ -225,7 +227,6 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
         bson_t reply;
         bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, &reply, &error);
 
-        mongoc_cursor_destroy(cursor);
         bson_destroy(selector);
         bson_destroy(update);
 
@@ -236,8 +237,14 @@ void MongoDatabase::add_user_to_group(const std::string &group_name, const std::
                 done = true;
             }
         } else {
+            bson_destroy(&reply);
             throw_potential_error(error);
         }
+        bson_destroy(&reply);
+    }
+
+    if (!done) {
+        throw BSON_ERROR("Unable to add user to group after multiple attempts");
     }
 }
 
@@ -245,37 +252,74 @@ void MongoDatabase::remove_user_from_group(const std::string &group_name, const 
     auto hashed_group_name = hash_name(group_name);
     auto hashed_user_name = hash_name(user_name, &group_name);
 
-    bson_t *selector = BCON_NEW("name",
-                                BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()));
-    mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
-    const bson_t *existing_document;
-    mongoc_cursor_next(cursor, &existing_document);
-    if (!validate_group_signature(existing_document)) {
+    bool done = false;
+    int attempts = 10;
+    while (!done && (attempts-- > 0)) {
+        bson_t *selector = BCON_NEW("name",
+                                    BCON_BIN(BSON_SUBTYPE_BINARY, hashed_group_name.data(), hashed_group_name.size()),
+                                    "users.name",
+                                    BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()));
+
+        mongoc_cursor_t *cursor = mongoc_collection_find_with_opts(groups_collection, selector, nullptr, nullptr);
+        const bson_t *existing_document;
+        if (!mongoc_cursor_next(cursor, &existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            // The group does not exist or the user is not part of that group
+            return;
+        }
+        if (!validate_group_signature(existing_document)) {
+            bson_destroy(selector);
+            mongoc_cursor_destroy(cursor);
+            throw BSON_ERROR("Error in signature validation");
+        }
+
+        // Add old signature to selector to guarantee consistency.
+        {
+            bson_iter_t iter;
+            const uint8_t *signature;
+            uint32_t signature_length;
+            bson_iter_init_find(&iter, existing_document, "signature");
+            bson_iter_binary(&iter, nullptr, &signature_length, &signature);
+            BSON_APPEND_BINARY(selector, "signature", BSON_SUBTYPE_BINARY, signature, signature_length);
+        }
+
+        hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
+
         mongoc_cursor_destroy(cursor);
-        throw BSON_ERROR("Error in signature validation");
+
+        bson_t *update = BCON_NEW("$pull", "{", "users", "{",
+                                  "name",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
+                                  "}", "}",
+                                  "$set", "{",
+                                  "signature",
+                                  BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
+                                  "}"
+        );
+
+        bson_error_t error;
+        bson_t reply;
+        bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, &reply, &error);
+
+        bson_destroy(selector);
+        bson_destroy(update);
+
+        if (status) {
+            bson_iter_t iter;
+            bson_iter_init_find(&iter, &reply, "matchedCount");
+            if (bson_iter_int64(&iter) >= 1) {
+                done = true;
+            }
+        } else {
+            bson_destroy(&reply);
+            throw_potential_error(error);
+        }
+        bson_destroy(&reply);
     }
 
-    hashed_t new_signature = compute_group_signature(existing_document, &hashed_user_name, nullptr, false);
-
-    mongoc_cursor_destroy(cursor);
-
-    bson_t *update = BCON_NEW("$pull", "{", "users", "{",
-                              "name", BCON_BIN(BSON_SUBTYPE_BINARY, hashed_user_name.data(), hashed_user_name.size()),
-                              "}", "}",
-                              "$set", "{",
-                              "signature",
-                              BCON_BIN(BSON_SUBTYPE_BINARY, new_signature.data(), new_signature.size()),
-                              "}"
-    );
-
-    bson_error_t error;
-    bool status = mongoc_collection_update_one(groups_collection, selector, update, nullptr, nullptr, &error);
-
-    bson_destroy(selector);
-    bson_destroy(update);
-
-    if (!status) {
-        throw_potential_error(error);
+    if (!done) {
+        throw BSON_ERROR("Unable to remove user from group after multiple attempts");
     }
 }
 
@@ -537,7 +581,7 @@ const hashed_t MongoDatabase::hash_name(const std::string &name, const std::stri
     if (optional_salt != nullptr) {
         sgx_hmac256_update((const uint8_t *) optional_salt->data(), optional_salt->length(), context);
     }
-    std::array<unsigned char, HMAC_RESULT_LENGTH> result{};
+    hashed_t result{};
     sgx_hmac256_final(result.data(), HMAC_RESULT_LENGTH, context);
     sgx_hmac256_close(context);
     return result;
