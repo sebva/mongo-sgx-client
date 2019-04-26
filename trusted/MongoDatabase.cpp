@@ -481,7 +481,11 @@ KeyArray MongoDatabase::get_keys_of_group(const std::string &group_name) {
     }
 
     const bson_t *group_document;
-    mongoc_cursor_next(cursor, &group_document);
+    if (!mongoc_cursor_next(cursor, &group_document)) {
+        bson_destroy(selector);
+        mongoc_cursor_destroy(cursor);
+        throw BSON_ERROR("No matching group to validate");
+    }
     if (!validate_group_signature(group_document)) {
         mongoc_cursor_destroy(cursor);
         throw BSON_ERROR("Error in signature validation");
